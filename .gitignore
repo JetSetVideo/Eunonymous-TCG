@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Lockfile for the (empty) front-end dep tree — keep package-lock, ignore nothing else
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Backups & scratch
+*.bak
+*.bak-v*
+*.orig
+*.log
+
+# Runtime / net state
+.lan-room
+server/.rooms.json
+.hermes/

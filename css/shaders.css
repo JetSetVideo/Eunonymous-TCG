@@ -1,0 +1,815 @@
+/* ================================================================
+   SYNTHOPWARS — DERIVED SHADER CSS v1.0
+   Consumes --shader-* custom properties set by js/shaders.js
+   Every visual property is derived from game semantics:
+   - Team colors from archetype meaning (HSL equations)
+   - Rarity glow from tier^2 * sin(t)
+   - HP pulse from (1-hp)^2 * 10 + 2
+   - Mana shimmer from (mana/max)^0.5
+   - Power color from lerp(blue→gold→red)
+   - Biome noise/freq/distortion from biome type
+   ================================================================ */
+
+/* ===== SHADER CANVAS (WebGL background) ===== */
+#shader-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* ===== ROOT DERIVED VARIABLES ===== */
+:root {
+  /* Default shader values (overwritten by JS at runtime) */
+  --shader-team-color: #00d9ff;
+  --shader-team-glow: #00f5ff;
+  --shader-rarity-tier: 0;
+  --shader-rarity-glow: 0px;
+  --shader-rarity-border: 1px;
+  --shader-rarity-shadow: 0px;
+  --shader-hp-ratio: 1;
+  --shader-hp-color: #05ffa1;
+  --shader-hp-pulse-freq: 2Hz;
+  --shader-mana-shimmer: 0;
+  --shader-power-color: #00d9ff;
+  --shader-selected: 0;
+  --shader-playable: 0;
+  --shader-frozen: 0;
+  --shader-is-enemy: 0;
+  --shader-shield: 0;
+  --shader-shield-glow: 0px;
+  --shader-biome-noise-freq: 200;
+  --shader-biome-flow-speed: 0.3;
+  --shader-biome-distortion: 0.8;
+  --shader-biome-color-r: 0;
+  --shader-biome-color-g: 0.85;
+  --shader-biome-color-b: 1;
+}
+
+/* ===== CARD SHADER-DRIVEN STYLING ===== */
+/* Cards get their team color, rarity glow, HP pulse, and state indicators
+   all from --shader-* variables set by SynthShaderEngine.DERIVED.applyCardShaders() */
+
+.card {
+  /* Team color drives border and glow */
+  border-color: var(--shader-team-color);
+  box-shadow:
+    0 0 var(--shader-rarity-shadow) var(--shader-team-glow),
+    0 4px 12px rgba(0,0,0,0.4);
+  border-width: var(--shader-rarity-border);
+}
+
+/* Rarity glow: rarer cards shimmer with team-colored light */
+/* Equation: glow_opacity = (tier^2/25) * (0.5 + sin(t)*0.3) */
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    ellipse at 50% 30%,
+    var(--shader-team-glow) 0%,
+    transparent 70%
+  );
+  opacity: calc(var(--shader-rarity-tier) * var(--shader-rarity-tier) * 0.04);
+  pointer-events: none;
+  z-index: 1;
+  animation: rarityShimmer 3s ease-in-out infinite;
+}
+
+@keyframes rarityShimmer {
+  0%, 100% { opacity: calc(var(--shader-rarity-tier) * var(--shader-rarity-tier) * 0.02); }
+  50% { opacity: calc(var(--shader-rarity-tier) * var(--shader-rarity-tier) * 0.06); }
+}
+
+/* Holo layer — iridescent shimmer for rare+ cards */
+.card .card-holo {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    calc(135deg + var(--shader-rarity-tier) * 10deg),
+    transparent 30%,
+    var(--shader-team-glow) 50%,
+    transparent 70%
+  );
+  opacity: calc(var(--shader-rarity-tier) * 0.08);
+  pointer-events: none;
+  z-index: 2;
+  animation: holoShift 4s ease-in-out infinite;
+}
+
+@keyframes holoShift {
+  0%, 100% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+}
+
+/* Team background — subtle tint from team color */
+.card .card-team-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--shader-team-color);
+  opacity: 0.06;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* HP bar — color and pulse derived from HP ratio */
+/* Equation: pulse_freq = 2 + (1-hp)^2 * 10 */
+.card .card-hp-bar-fill {
+  background: var(--shader-hp-color);
+  animation: hpPulse calc(1 / var(--shader-hp-pulse-freq)) ease-in-out infinite;
+}
+
+@keyframes hpPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: calc(0.4 + (1 - var(--shader-hp-ratio)) * 0.5); }
+}
+
+/* Selected card — golden pulsing border */
+/* Equation: selected ? gold_border * (0.5 + sin(t*6)*0.5) : none */
+.card[style*="--shader-selected:1"],
+.card:has(> [style*="--shader-selected:1"]) {
+  border-color: #ffd700;
+  box-shadow:
+    0 0 20px rgba(255,215,0,0.4),
+    0 0 40px rgba(255,215,0,0.2),
+    0 4px 12px rgba(0,0,0,0.4);
+  animation: selectedPulse 1s ease-in-out infinite;
+}
+
+@keyframes selectedPulse {
+  0%, 100% { box-shadow: 0 0 15px rgba(255,215,0,0.3), 0 0 30px rgba(255,215,0,0.1); }
+  50% { box-shadow: 0 0 25px rgba(255,215,0,0.5), 0 0 50px rgba(255,215,0,0.25); }
+}
+
+/* Playable card — subtle green edge shimmer */
+.card[style*="--shader-playable:1"] {
+  border-color: rgba(5,255,161,0.5);
+  animation: playableShimmer 2s ease-in-out infinite;
+}
+
+@keyframes playableShimmer {
+  0%, 100% { box-shadow: 0 0 5px rgba(5,255,161,0.15), 0 4px 12px rgba(0,0,0,0.4); }
+  50% { box-shadow: 0 0 15px rgba(5,255,161,0.3), 0 4px 12px rgba(0,0,0,0.4); }
+}
+
+/* Unaffordable card — desaturated */
+.card[style*="--shader-playable:0"] .card-mana-cost {
+  filter: grayscale(0.5) brightness(0.7);
+}
+
+/* Frozen card — ice crystal overlay */
+.card[style*="--shader-frozen:1"] {
+  filter: hue-rotate(180deg) brightness(0.7) saturate(0.5);
+}
+.card[style*="--shader-frozen:1"]::after {
+  content: '❄';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2rem;
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: 5;
+  animation: iceShimmer 2s ease-in-out infinite;
+}
+
+@keyframes iceShimmer {
+  0%, 100% { opacity: 0.3; text-shadow: 0 0 10px rgba(100,200,255,0.5); }
+  50% { opacity: 0.5; text-shadow: 0 0 20px rgba(100,200,255,0.8); }
+}
+
+/* ===== COMMANDER BAR SHADER STYLING ===== */
+/* HP ring color and pulse driven by --shader-hp-* variables */
+
+.commander-bar .hp-ring-fill {
+  stroke: var(--shader-hp-color);
+  filter: drop-shadow(0 0 calc(var(--shader-shield-glow) + 3px) var(--shader-hp-color));
+}
+
+/* HP ring pulses faster at low HP */
+.commander-bar .hp-orb {
+  animation: hpOrbPulse calc(1 / var(--shader-hp-pulse-freq)) ease-in-out infinite;
+}
+
+@keyframes hpOrbPulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(calc(1 + (1 - var(--shader-hp-ratio)) * 0.5)); }
+}
+
+/* Shield orb — only visible when shield > 0 */
+.commander-bar .shield-orb {
+  opacity: calc(var(--shader-shield) > 0 ? 1 : 0.3);
+  filter: drop-shadow(0 0 var(--shader-shield-glow) var(--accent-purple));
+}
+
+.commander-bar .shield-orb .stat-orb-val {
+  color: var(--accent-purple);
+  text-shadow: 0 0 calc(var(--shader-shield-glow) + 4px) rgba(188,19,254,0.6);
+}
+
+/* Mana crystals — shimmer intensity from mana ratio */
+.commander-bar .mana-crystal.full {
+  background: var(--shader-is-enemy) > 0 ? var(--accent-red) : var(--accent-cyan);
+  box-shadow:
+    0 0 calc(var(--shader-mana-shimmer) * 6px) currentColor,
+    inset 0 0 calc(var(--shader-mana-shimmer) * 3px) rgba(255,255,255,0.3);
+  animation: manaShimmer calc(2s / (var(--shader-mana-shimmer) + 0.5)) ease-in-out infinite;
+}
+
+@keyframes manaShimmer {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(calc(1 + var(--shader-mana-shimmer) * 0.4)); }
+}
+
+/* Power orb — color shifts from blue to gold to red */
+.commander-bar .power-orb .stat-orb-val {
+  color: var(--shader-power-color);
+  text-shadow: 0 0 6px var(--shader-power-color);
+  transition: color 0.5s ease, text-shadow 0.5s ease;
+}
+
+/* ===== BATTLEGROUND BIOME SHADER STYLING ===== */
+/* The arena background uses --shader-biome-* variables to derive
+   its visual properties through CSS gradients and animations */
+
+.battle-arena {
+  --biome-r: calc(var(--shader-biome-color-r) * 255);
+  --biome-g: calc(var(--shader-biome-color-g) * 255);
+  --biome-b: calc(var(--shader-biome-color-b) * 255);
+  --biome-rgb: rgb(var(--biome-r), var(--biome-g), var(--biome-b));
+
+  background: radial-gradient(
+    ellipse at 50% 30%,
+    rgba(var(--biome-r), var(--biome-g), var(--biome-b), 0.08) 0%,
+    rgba(5, 5, 16, 1) 70%
+  ) !important;
+}
+
+/* Biome atmospheric overlay */
+.battle-arena::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent calc(100vh / var(--shader-biome-noise-freq)),
+      rgba(var(--biome-r), var(--biome-g), var(--biome-b), 0.03) calc(100vh / var(--shader-biome-noise-freq)),
+      transparent calc(2 * 100vh / var(--shader-biome-noise-freq))
+    );
+  animation: biomeFlow calc(10s / var(--shader-biome-flow-speed)) linear infinite;
+}
+
+@keyframes biomeFlow {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 calc(100vh / var(--shader-biome-noise-freq) * 2); }
+}
+
+/* Biome distortion layer — warps edges */
+.battle-arena::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 50% 50%,
+    transparent 40%,
+    rgba(var(--biome-r), var(--biome-g), var(--biome-b), calc(var(--shader-biome-distortion) * 0.04)) 100%
+  );
+  animation: biomeDistort calc(8s / var(--shader-biome-flow-speed)) ease-in-out infinite alternate;
+}
+
+@keyframes biomeDistort {
+  0% { transform: scale(1); opacity: 0.5; }
+  100% { transform: scale(calc(1 + var(--shader-biome-distortion) * 0.02)); opacity: 1; }
+}
+
+/* ===== STAT ORB SHADER EFFECTS ===== */
+/* HP orb — color and glow derived from HP ratio */
+
+.stat-orb.hp-orb {
+  position: relative;
+}
+
+.stat-orb.hp-orb::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--shader-hp-color) 0%, transparent 70%);
+  opacity: calc((1 - var(--shader-hp-ratio)) * 0.3);
+  pointer-events: none;
+  animation: hpGlowPulse calc(1s / var(--shader-hp-pulse-freq)) ease-in-out infinite;
+}
+
+@keyframes hpGlowPulse {
+  0%, 100% { transform: scale(0.95); opacity: calc((1 - var(--shader-hp-ratio)) * 0.2); }
+  50% { transform: scale(1.1); opacity: calc((1 - var(--shader-hp-ratio)) * 0.4); }
+}
+
+/* Shield orb — purple glow proportional to shield amount */
+.stat-orb.shield-orb::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-purple) 0%, transparent 70%);
+  opacity: calc(var(--shader-shield) * 0.1);
+  pointer-events: none;
+  filter: blur(calc(var(--shader-shield-glow) * 1px));
+}
+
+/* Power orb — color from power ratio */
+.stat-orb.power-orb .stat-orb-val {
+  color: var(--shader-power-color);
+  text-shadow: 0 0 6px var(--shader-power-color);
+  transition: color 0.5s ease;
+}
+
+.stat-orb.power-orb::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--shader-power-color) 0%, transparent 70%);
+  opacity: 0.1;
+  pointer-events: none;
+  animation: powerGlow 2s ease-in-out infinite;
+}
+
+@keyframes powerGlow {
+  0%, 100% { opacity: 0.08; transform: scale(0.95); }
+  50% { opacity: 0.15; transform: scale(1.05); }
+}
+
+/* ===== MANA CRYSTAL SHADER ===== */
+/* Diamond-shaped crystals with shimmer derived from mana ratio */
+/* Equation: shimmer = (mana/max)^0.5, glow = shimmer * 6px */
+
+.mana-crystal {
+  background: var(--shader-is-enemy) > 0
+    ? var(--accent-red)
+    : var(--accent-cyan);
+  box-shadow:
+    0 0 calc(var(--shader-mana-shimmer) * 4px + 1px) currentColor,
+    inset 0 0 2px rgba(255,255,255,0.2);
+}
+
+.mana-crystal.full {
+  animation: manaCrystalPulse calc(3s / (var(--shader-mana-shimmer) + 0.3)) ease-in-out infinite;
+}
+
+@keyframes manaCrystalPulse {
+  0%, 100% {
+    filter: brightness(1);
+    box-shadow: 0 0 calc(var(--shader-mana-shimmer) * 3px) currentColor;
+  }
+  50% {
+    filter: brightness(calc(1 + var(--shader-mana-shimmer) * 0.5));
+    box-shadow: 0 0 calc(var(--shader-mana-shimmer) * 6px + 2px) currentColor;
+  }
+}
+
+/* ===== MODIFIER CHIPS — BUFF/DEBUFF COLOR DERIVATION ===== */
+.mod-chip {
+  /* Color from the modifier type through semantic mapping */
+  background: color-mix(in srgb, var(--mod-color, var(--accent-cyan)) 15%, transparent);
+  border-color: color-mix(in srgb, var(--mod-color, var(--accent-cyan)) 30%, transparent);
+  color: var(--mod-color, var(--accent-cyan));
+}
+
+.mod-chip.mod-atk { --mod-color: var(--accent-red); }
+.mod-chip.mod-def { --mod-color: var(--accent-green); }
+.mod-chip.mod-hp  { --mod-color: #ff5050; }
+.mod-chip.mod-shield { --mod-color: var(--accent-purple); }
+.mod-chip.mod-energy { --mod-color: var(--accent-gold); }
+
+/* ===== HAND CARD FAN — CURVED LAYOUT DERIVED FROM HAND SIZE ===== */
+/* The fan angle increases with hand size: angle = handSize * 2deg */
+.hand-row.player-hand {
+  --fan-angle: 0deg;
+}
+
+.hand-row.player-hand .hand-card-wrapper:nth-child(odd) {
+  transform: rotate(calc(var(--fan-angle) * -0.3));
+}
+.hand-row.player-hand .hand-card-wrapper:nth-child(even) {
+  transform: rotate(calc(var(--fan-angle) * 0.3));
+}
+.hand-row.player-hand .hand-card-wrapper:nth-child(3n) {
+  transform: rotate(calc(var(--fan-angle) * 0.1));
+}
+
+/* ===== BATTLE SLOT — DROP ZONE SHADER ===== */
+.battle-slot-droppable.drop-target {
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(0,217,255,0.08) 0%,
+    transparent 80%
+  );
+  border-color: rgba(0,217,255,0.4);
+  animation: dropZonePulse 2s ease-in-out infinite;
+}
+
+@keyframes dropZonePulse {
+  0%, 100% { border-color: rgba(0,217,255,0.2); }
+  50% { border-color: rgba(0,217,255,0.5); }
+}
+
+/* ===== COMBAT ANIMATION — SHOCKWAVE TRIGGER ===== */
+/* When .card-attack-anim is active, trigger the WebGL shockwave */
+.card-attack-anim {
+  animation: cardAttackShader 0.6s ease-out;
+}
+
+@keyframes cardAttackShader {
+  0% { transform: translateY(0) scale(1); filter: brightness(1); }
+  20% { transform: translateY(-20px) scale(1.15); filter: brightness(1.5) drop-shadow(0 0 10px var(--shader-team-glow, #00d9ff)); }
+  40% { transform: translateY(5px) scale(1.05); filter: brightness(1.2); }
+  100% { transform: translateY(0) scale(1); filter: brightness(1); }
+}
+
+/* ===== HIT FLASH — DERIVED FROM DAMAGE ===== */
+.hit-flash {
+  animation: hitFlashShader 0.3s ease-out;
+}
+
+@keyframes hitFlashShader {
+  0% { filter: brightness(1) saturate(1); }
+  30% { filter: brightness(3) saturate(2) hue-rotate(10deg); }
+  100% { filter: brightness(1) saturate(1); }
+}
+
+/* ===== CARD BACK SHADER — PROCEDURAL PATTERN ===== */
+/* Each card back type generates a different pattern through CSS */
+.card-back {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-back::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-conic-gradient(
+      from 0deg at 50% 50%,
+      var(--back-color, rgba(0,217,255,0.1)) 0deg,
+      transparent 10deg,
+      var(--back-color, rgba(0,217,255,0.1)) 20deg
+    );
+  animation: cardBackRotate 10s linear infinite;
+  opacity: 0.3;
+}
+
+.card-back::after {
+  content: '⚡';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2rem;
+  opacity: 0.2;
+  color: var(--back-color, var(--accent-cyan));
+  animation: cardBackPulse 3s ease-in-out infinite;
+}
+
+@keyframes cardBackRotate {
+  0% { transform: rotate(0deg) scale(1.5); }
+  100% { transform: rotate(360deg) scale(1.5); }
+}
+
+@keyframes cardBackPulse {
+  0%, 100% { opacity: 0.15; transform: translate(-50%, -50%) scale(0.9); }
+  50% { opacity: 0.3; transform: translate(-50%, -50%) scale(1.1); }
+}
+
+.card-back-back1 { --back-color: rgba(255,42,109,0.15); }
+.card-back-back2 { --back-color: rgba(5,255,161,0.15); }
+.card-back-back3 { --back-color: rgba(0,217,255,0.15); }
+.card-back-back4 { --back-color: rgba(255,215,0,0.15); }
+.card-back-nft   { --back-color: rgba(0,245,255,0.15); }
+
+/* ===== BANK MARKET — CARD DEALING ANIMATION ===== */
+.bank-card-slot {
+  transition: all 0.2s ease;
+  filter: brightness(calc(0.8 + var(--shader-mana-shimmer, 0.5) * 0.2));
+}
+
+.bank-card-slot.unaffordable {
+  filter: grayscale(0.6) brightness(0.5);
+}
+
+.bank-card-slot:hover {
+  filter: brightness(1.2);
+  transform: translateY(-4px);
+}
+
+/* ===== TURN TIMER — URGENCY DERIVED FROM TIME LEFT ===== */
+/* As time decreases, the timer shakes and turns red */
+.turn-timer-btn.urgent {
+  animation: timerUrgent 0.4s ease-in-out infinite;
+  border-color: var(--accent-red) !important;
+  box-shadow: 0 0 20px rgba(255,42,109,0.5) !important;
+}
+
+@keyframes timerUrgent {
+  0%, 100% { transform: translateY(-50%) translateX(0); }
+  25% { transform: translateY(-50%) translateX(-3px) rotate(-1deg); }
+  75% { transform: translateY(-50%) translateX(3px) rotate(1deg); }
+}
+
+/* ===== PHASE CLOCK — COUNTDOWN RING ===== */
+.clock-fill {
+  stroke: var(--shader-power-color, var(--accent-cyan));
+  filter: drop-shadow(0 0 4px var(--shader-power-color, var(--accent-cyan)));
+  transition: stroke 0.5s ease, stroke-dashoffset 1s linear;
+}
+
+.clock-fill.urgent {
+  stroke: var(--accent-red);
+  filter: drop-shadow(0 0 6px var(--accent-red));
+  animation: clockUrgent 0.5s ease-in-out infinite;
+}
+
+@keyframes clockUrgent {
+  0%, 100% { filter: drop-shadow(0 0 4px var(--accent-red)); }
+  50% { filter: drop-shadow(0 0 10px var(--accent-red)); }
+}
+
+/* ===== BATTLEGROUND BANNER — BIOME-COLORED ===== */
+.battleground-banner {
+  color: var(--shader-biome-color-r, 0) > 0
+    ? rgb(calc(var(--shader-biome-color-r) * 255), calc(var(--shader-biome-color-g) * 255), calc(var(--shader-biome-color-b) * 255))
+    : var(--accent-cyan);
+  border-color: rgba(
+    calc(var(--shader-biome-color-r) * 255),
+    calc(var(--shader-biome-color-g) * 255),
+    calc(var(--shader-biome-color-b) * 255),
+    0.3
+  );
+}
+
+/* ===== GRAVEYARD MODAL — ETHEREAL FADE ===== */
+.graveyard-modal {
+  backdrop-filter: blur(8px) brightness(0.3);
+}
+
+/* ===== VICTORY/DEFEAT OVERLAY — SHADER-DRIVEN ===== */
+.victory-overlay-full {
+  background: radial-gradient(
+    circle at center,
+    rgba(255,215,0,0.15) 0%,
+    rgba(0,0,0,0.85) 70%
+  );
+}
+
+.defeat-overlay-full {
+  background: radial-gradient(
+    circle at center,
+    rgba(255,42,109,0.15) 0%,
+    rgba(0,0,0,0.85) 70%
+  );
+}
+
+/* ===== CONFETTI — COLOR FROM TEAM COLORS ===== */
+.confetti-piece {
+  background: var(--shader-team-color, #ffd700);
+  animation: confettiFallShader linear forwards;
+}
+
+@keyframes confettiFallShader {
+  0% { transform: translateY(-20px) rotate(0) scale(1); opacity: 1; }
+  50% { transform: translateY(50vh) rotate(360deg) scale(0.8); opacity: 0.8; }
+  100% { transform: translateY(100vh) rotate(720deg) scale(0.5); opacity: 0; }
+}
+
+/* ===== SYNERGY POPUP — TEAM-COLORED ===== */
+.synergy-popup {
+  border-color: var(--popup-color, var(--shader-team-color));
+  box-shadow: 0 0 40px var(--popup-color, var(--shader-team-color));
+}
+
+.synergy-popup h3 {
+  color: var(--popup-color, var(--shader-team-color));
+}
+
+/* ===== AI THINKING INDICATOR — ENEMY-COLORED ===== */
+.ai-thinking-indicator {
+  background: rgba(255,42,109,0.15);
+  border-color: rgba(255,42,109,0.3);
+  color: var(--accent-red);
+  text-shadow: 0 0 8px rgba(255,42,109,0.4);
+}
+
+/* ===== PERFORMANCE: REDUCE MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== TITLE SCREEN SHADER ===== */
+#title-screen {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(188,19,254,0.08) 0%,
+    rgba(5,5,16,1) 70%
+  );
+}
+
+#title-screen h1 {
+  background: linear-gradient(
+    135deg,
+    var(--accent-purple),
+    var(--accent-cyan),
+    var(--accent-red)
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 30px rgba(188,19,254,0.3));
+  animation: titleGlow 4s ease-in-out infinite;
+}
+
+@keyframes titleGlow {
+  0%, 100% { filter: drop-shadow(0 0 20px rgba(188,19,254,0.3)); }
+  50% { filter: drop-shadow(0 0 40px rgba(0,217,255,0.4)); }
+}
+
+/* ================================================================
+   v2.0 — ADDITIONAL TEXTURE & SHADER EFFECTS
+   3D card transforms, diffuse/normal/roughness simulation via CSS,
+   metalness highlights, ambient occlusion card edges
+   ================================================================ */
+
+/* ---------- 3D Card Perspective Transform ---------- */
+.card {
+  transform-style: preserve-3d;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+  will-change: transform;
+}
+
+.card:hover {
+  transform: translateY(-6px) scale(1.03) rotateX(2deg);
+  z-index: 100;
+}
+
+.card.in-hand {
+  transform: translateY(0) scale(0.85);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card.in-hand:hover {
+  transform: translateY(-12px) scale(0.95) rotateX(3deg);
+  box-shadow:
+    0 12px 32px rgba(0,0,0,0.5),
+    0 0 20px var(--shader-team-glow, rgba(0,217,255,0.3));
+}
+
+/* Selected attacker card — lift + green glow */
+.card.attacker-selected,
+.battle-slot-droppable.attacker-selected .card {
+  transform: translateY(-8px) scale(1.04);
+  box-shadow:
+    0 12px 40px rgba(5,255,161,0.4),
+    0 0 30px rgba(5,255,161,0.3) !important;
+  border-color: var(--accent-green) !important;
+}
+
+/* ---------- Diffuse/Normal Simulation via multi-layered gradients ---------- */
+.card::before {
+  /* Diffuse layer — soft team color scatter */
+  background:
+    radial-gradient(
+      ellipse at 50% 30%,
+      var(--shader-team-glow) 0%,
+      transparent 70%
+    ),
+    /* Normal map simulation — directional highlight */
+    linear-gradient(
+      160deg,
+      rgba(255,255,255,0.08) 0%,
+      transparent 40%,
+      rgba(0,0,0,0.06) 60%,
+      rgba(0,0,0,0.12) 100%
+    );
+  background-blend-mode: overlay, normal;
+}
+
+/* ---------- Diffuse map overlay (card-texture-overlay) ---------- */
+.card-texture-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 3;
+  /* Simulated diffuse texture */
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      rgba(255,255,255,0.015) 1px,
+      transparent 2px,
+      transparent 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      rgba(255,255,255,0.01) 1px,
+      transparent 2px,
+      transparent 4px
+    );
+  opacity: 0.6;
+  mix-blend-mode: overlay;
+}
+
+/* ---------- Metalness highlight (card-shimmer) ---------- */
+.card-shimmer {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 4;
+  background: linear-gradient(
+    135deg,
+    transparent 25%,
+    rgba(255,255,255,0.05) 30%,
+    rgba(255,255,255,0.12) 35%,
+    rgba(255,255,255,0.05) 40%,
+    transparent 45%
+  );
+  background-size: 300% 300%;
+  animation: shimmerSlide 4s ease-in-out infinite;
+  opacity: calc(0.3 + var(--shader-rarity-tier, 0) * 0.1);
+}
+
+@keyframes shimmerSlide {
+  0% { background-position: -100% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ---------- Roughness simulation — card frame edge wear ---------- */
+.card-frame {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 3;
+  border: 1px solid rgba(0,0,0,0.3);
+  /* Simulated roughness — subtle noise via multiple box-shadows */
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    inset 0 -1px 0 rgba(0,0,0,0.15),
+    inset 1px 0 0 rgba(255,255,255,0.04),
+    inset -1px 0 0 rgba(0,0,0,0.08);
+  mix-blend-mode: overlay;
+}
+
+/* ---------- Ambient occlusion — card corners darken ---------- */
+.card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 5;
+  /* Ambient occlusion via radial gradient from edges */
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    transparent 50%,
+    rgba(0,0,0,0.15) 70%,
+    rgba(0,0,0,0.3) 90%,
+    rgba(0,0,0,0.5) 100%
+  );
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+/* ---------- Bump map simulation via card-header gradient ---------- */
+.card-header {
+  position: relative;
+  z-index: 2;
+  /* Bump map: raised header area */
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.1),
+    inset 0 -1px 0 rgba(0,0,0,0.2);
+}
+
+/* ---------- Rarity-based border bump ---------- */
+.card.common { --shader-rarity-tier: 0; --shader-rarity-shadow: 0px; --shader-rarity-border: 1px; }
+.card.uncommon { --shader-rarity-tier: 1; --shader-rarity-shadow: 4px; --shader-rarity-border: 1.5px; }
+.card.rare { --shader-rarity-tier: 2; --shader-rarity-shadow: 8px; --shader-rarity-border: 2px; }
+.card.epic { --shader-rarity-tier: 3; --shader-rarity-shadow: 14px; --shader-rarity-border: 2px; }
+.card.legendary { --shader-rarity-tier: 4; --shader-rarity-shadow: 20px; --shader-rarity-border: 2.5px; }
+.card.mythic { --shader-rarity-tier: 5; --shader-rarity-shadow: 28px; --shader-rarity-border: 3px; }

@@ -1,0 +1,4114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eunonymous-TCG - Deckbuilding Battleground</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230a0e1c'/%3E%3Ctext x='32' y='46' font-size='38' text-anchor='middle'%3E%F0%9F%83%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/main.css?v=8">
+<link rel="stylesheet" href="css/cards.css?v=8">
+<link rel="stylesheet" href="css/shaders.css?v=8">
+<link rel="stylesheet" href="css/final-v11.css?v=11">
+<link rel="stylesheet" href="css/battle-v12.css?v=12">
+<link rel="stylesheet" href="css/characters.css?v=1">
+<link rel="stylesheet" href="css/menu-redesign.css?v=1">
+<style>
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: scale(0.85); }
+  15% { opacity: 1; transform: scale(1); }
+  80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.9); }
+}
+.dmg-float {
+  position: fixed;
+  font-size: 1.4rem;
+  font-weight: 900;
+  pointer-events: none;
+  z-index: 9999;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.9), 0 0 12px currentColor;
+  animation: dmgFloat 1.1s ease-out forwards;
+  color: #fff;
+}
+.dmg-float.dmg-high { font-size: 1.9rem; }
+.dmg-float.dmg-critical { font-size: 2.4rem; animation: dmgFloatCrit 1.2s ease-out forwards; }
+.dmg-float.dmg-heal { color: #05ffa1; }
+@keyframes dmgFloat {
+  0% { transform: translateY(0); opacity: 1; }
+  60% { transform: translateY(-40px); opacity: 0.8; }
+  100% { transform: translateY(-70px); opacity: 0; }
+}
+@keyframes toastIn {
+  0% { opacity: 0; transform: translateY(20px) scale(0.9); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes dmgFloatCrit {
+  0% { transform: translateY(0) scale(1.4); opacity: 1; }
+  20% { transform: translateY(-12px) scale(1.6); }
+  60% { transform: translateY(-52px) scale(1.1); opacity: 0.7; }
+  100% { transform: translateY(-85px) scale(0.8); opacity: 0; }
+}
+</style>
+</head>
+<body>
+<!-- ===== TITLE SCREEN ===== -->
+<div id="title-screen" class="screen active">
+  <div class="title-bg-fluidmetal"></div>
+  <div class="title-bg-grid"></div>
+  <div class="title-bg-scanlines"></div>
+  <div class="title-bg-vignette"></div>
+  <div class="title-bg-stars"></div>
+  <button class="gear-icon" onclick="ui.showScreen('settings')" title="Settings">⚙️</button>
+  <div class="title-content">
+    <h1>EUNONYMOUS<!-- --></h1>
+    <p class="subtitle">Deckbuilding Battleground</p>
+    <div class="player-quick-info">
+      <span class="player-avatar-sm" id="title-avatar">🦾</span>
+      <span class="player-rank-sm" id="title-rank">Bronze I</span>
+    </div>
+    <div class="title-buttons">
+      <button class="menu-button primary-btn" onclick="ui.quickBattle()">⚡ Quick Battle</button>
+      <button class="menu-button primary-btn" onclick="ui.showScreen('character-select')">⚔️ Build Deck</button>
+      <button class="menu-button primary-btn" onclick="ui.showScreen('battleground-select')">🗺️ Pick Field</button>
+      <button class="menu-button" onclick="ui.showScreen('lore')">📖 World</button>
+      <button class="menu-button" onclick="ui.showScreen('friends')">👥 Friends</button>
+      <button class="menu-button" onclick="ui.showScreen('achievements')">🏆 Trophies</button>
+      <button class="menu-button" onclick="ui.showScreen('leaderboard')">📊 Leaderboard</button>
+      <button class="menu-button" onclick="ui.showScreen('quests')">📋 Quests</button>
+      <button class="menu-button" onclick="ui.showScreen('tutorial')">❓ Help</button>
+    </div>
+    <div class="version-tag">
+      <span id="version-display">v4.0 • Battle System Overhaul</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CHARACTER SELECT ===== -->
+<div id="character-select-screen" class="screen">
+  <div class="screen-header">
+    <button class="back-button" onclick="ui.showScreen('title')">← Back</button>
+    <h2>Choose Your Character</h2>
+    <p class="character-select-sub">Who you play as decides which 8 signature cards are yours alone — everything else is Colorless and shared by every Character. See <a href="docs/CARDS.md" target="_blank" rel="noopener">the full design doc</a> for the 5-axis breakdown.</p>
+  </div>
+  <div class="screen-content">
+    <div class="character-select-grid" id="character-select-grid"></div>
+  </div>
+</div>
+
+<!-- ===== DECK BUILDER ===== -->
+<div id="deckbuilder-screen" class="screen">
+  <div class="screen-header db-header">
+    <div class="db-header-top">
+      <button class="back-button" onclick="ui.showScreen('character-select')">← Change Character</button>
+      <h2>Deck Builder</h2>
+      <div class="deck-info">
+        <span class="db-character-badge" id="db-character-badge"></span>
+        <span>Cards: <span class="count" id="deck-count">0</span>/40</span>
+        <span>Creatures: <span id="creature-count">0</span></span>
+        <span>Spells: <span id="spell-count">0</span></span>
+      </div>
+    </div>
+    <div class="db-header-filters">
+      <select id="filter-team" onchange="ui.filterCards()">
+        <option value="">All Teams</option>
+        <option value="Overchargers">Overchargers</option>
+        <option value="Fortress">Fortress</option>
+        <option value="Control">Control</option>
+        <option value="Synergy">Synergy</option>
+        <option value="Economy">Economy</option>
+        <option value="Chaos">Chaos</option>
+        <option value="Synth Legends">Synth Legends</option>
+        <option value="Titanborn">Titanborn</option>
+      </select>
+      <select id="filter-type" onchange="ui.filterCards()">
+        <option value="">All Types</option>
+        <option value="Creature">Creature</option>
+        <option value="Spell">Spell</option>
+        <option value="Trap">Trap</option>
+        <option value="Structure">Structure</option>
+        <option value="Action">Action</option>
+        <option value="Gear">Gear</option>
+        <option value="Conspiracy">Conspiracy</option>
+      </select>
+      <select id="filter-rarity" onchange="ui.filterCards()">
+        <option value="">All Rarities</option>
+        <option value="common">Common</option>
+        <option value="uncommon">Uncommon</option>
+        <option value="rare">Rare</option>
+        <option value="epic">Epic</option>
+        <option value="legendary">Legendary</option>
+        <option value="mythic">Mythic</option>
+      </select>
+      <div class="filter-cost-inline">
+        <label>Max Pwr</label>
+        <input type="range" id="filter-cost" min="0" max="12" value="12" onchange="ui.filterCards()">
+        <span id="filter-cost-value">12</span>
+      </div>
+      <span id="filter-results" class="filter-results-label">Showing all cards</span>
+      <input type="text" id="card-search-input" class="card-search-input" placeholder="Search cards..." oninput="ui.filterCards()">
+    </div>
+  </div>
+  <div class="deck-builder-layout">
+    <!-- LEFT SIDEBAR: Archetypes + Saved Decks -->
+    <div class="deck-builder-sidebar">
+      <h3 class="db-section-title">⚔️ Archetype Decks</h3>
+      <div id="preset-decks-list" class="preset-decks-list"></div>
+      <h3 class="db-section-title">💾 Saved Decks</h3>
+      <div id="saved-decks-list" class="saved-decks-list">
+        <div class="empty-hint">No saved decks yet</div>
+      </div>
+      <div class="db-sidebar-actions">
+        <button class="sidebar-btn sidebar-btn-clear" onclick="ui.clearDeck()">Clear Deck</button>
+        <button class="sidebar-btn sidebar-btn-save" onclick="ui.saveDeck()">Save Deck</button>
+      </div>
+    </div>
+    <!-- CENTER: Available cards -->
+    <div class="deck-builder-main">
+      <div class="card-grid" id="card-collection"></div>
+    </div>
+    <!-- RIGHT SIDEBAR: Deck Summary -->
+    <div class="deck-summary-panel">
+      <h3 class="db-section-title">📋 Deck Summary</h3>
+      <div class="deck-name-editor">
+        <input type="text" id="deck-name-input" class="deck-name-input" value="My Deck" placeholder="Deck Name" onchange="ui.updateDeckName(this.value)">
+        <button class="deck-name-edit-btn" onclick="ui.editDeckName()" title="Edit name">✏️</button>
+      </div>
+      <div class="deck-stats-grid">
+        <div class="deck-stat-item"><div class="deck-stat-val" id="right-deck-count">0</div><div class="deck-stat-lbl"><b>Cards</b></div></div>
+        <div class="deck-stat-item"><div class="deck-stat-val stat-creature" id="right-creature-count">0</div><div class="deck-stat-lbl"><b>⚔️</b> Creatures</div></div>
+        <div class="deck-stat-item"><div class="deck-stat-val stat-spell" id="right-spell-count">0</div><div class="deck-stat-lbl"><b>✨</b> Spells</div></div>
+        <div class="deck-stat-item"><div class="deck-stat-val stat-trap" id="right-trap-count">0</div><div class="deck-stat-lbl"><b>💣</b> Traps</div></div>
+        <div class="deck-stat-item"><div class="deck-stat-val stat-structure" id="right-structure-count">0</div><div class="deck-stat-lbl"><b>🏗️</b> Struct.</div></div>
+        <div class="deck-stat-item"><div class="deck-stat-val stat-power" id="right-avg-power">0</div><div class="deck-stat-lbl"><i>Avg Pwr</i></div></div>
+      </div>
+      <div class="deck-mana-curve" id="deck-mana-curve">
+        <div class="mana-curve-title">Mana Curve</div>
+        <div class="mana-curve-bars" id="mana-curve-bars"></div>
+      </div>
+      <div class="deck-card-list" id="deck-card-list">
+        <div class="empty-hint">No cards added yet</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== BATTLEGROUND SELECT ===== -->
+<div id="battleground-select-screen" class="screen">
+  <!-- Top bar -->
+  <div class="bg-topbar">
+    <button class="back-button" onclick="ui.showScreen('title')">← Back</button>
+    <h2>Battlegrounds</h2>
+    <div class="bg-deck-badge">
+      <span>🃏 <b id="bg-deck-count-top">0</b>/40</span>
+    </div>
+  </div>
+  <!-- Mode navigation bar -->
+  <div class="bg-modebar">
+    <button class="bg-mode-btn active" onclick="ui.setGameMode('bot')" data-mode="bot">
+      <span class="bg-mode-icon">🤖</span> Bot Match
+    </button>
+    <button class="bg-mode-btn" onclick="ui.setGameMode('arcade')" data-mode="arcade">
+      <span class="bg-mode-icon">🔥</span> Arcade
+    </button>
+    <button class="bg-mode-btn" onclick="ui.setGameMode('story')" data-mode="story">
+      <span class="bg-mode-icon">📖</span> Story
+    </button>
+    <button class="bg-mode-btn" onclick="ui.setGameMode('casual')" data-mode="casual">
+      <span class="bg-mode-icon">👥</span> Casual
+    </button>
+    <button class="bg-mode-btn" onclick="ui.setGameMode('ranked')" data-mode="ranked">
+      <span class="bg-mode-icon">🏆</span> Ranked
+    </button>
+  </div>
+  <!-- Main content -->
+  <div class="bg-layout">
+    <!-- Left: Battleground cards grid -->
+    <div class="bg-main">
+      <div class="bg-grid" id="battleground-grid"></div>
+    </div>
+    <!-- Right: Match panel -->
+    <div class="bg-sidebar">
+      <div class="bg-match-panel">
+        <!-- Selected BG preview -->
+        <div class="bg-selected-info" id="bg-selected-info">
+          <div class="bg-selected-placeholder">
+            <div class="bg-placeholder-icon">🗺️</div>
+            <div>Choose a battleground</div>
+          </div>
+        </div>
+        <!-- Rules -->
+        <label class="bg-toggle-row">
+          <input type="checkbox" id="bg-rules-toggle" checked onchange="ui.toggleBattlegroundRules()">
+          <span class="bg-toggle-label">Apply field rules</span>
+          <span class="bg-rules-info" title="Field rules apply unique battleground effects to the match">ⓘ</span>
+        </label>
+        <!-- Opponent selector (bot modes) -->
+        <div class="bg-opponent-section" id="bg-opponent-section">
+          <label class="bg-label">Opponent Playstyle</label>
+          <div class="bg-opponent-cards" id="bg-opponent-cards">
+            <div class="bg-opp-card active" onclick="ui.selectOpponent('random')" data-style="random">
+              <div class="bg-opp-avatar bot-avatar-random"></div>
+              <div class="bg-opp-name">Random</div>
+            </div>
+            <div class="bg-opp-card" onclick="ui.selectOpponent('aggro')" data-style="aggro">
+              <div class="bg-opp-avatar bot-avatar-aggro"></div>
+              <div class="bg-opp-name">Aggressive</div>
+            </div>
+            <div class="bg-opp-card" onclick="ui.selectOpponent('control')" data-style="control">
+              <div class="bg-opp-avatar bot-avatar-control"></div>
+              <div class="bg-opp-name">Control</div>
+            </div>
+            <div class="bg-opp-card" onclick="ui.selectOpponent('tank')" data-style="tank">
+              <div class="bg-opp-avatar bot-avatar-tank"></div>
+              <div class="bg-opp-name">Defensive</div>
+            </div>
+          </div>
+        </div>
+        <!-- Arcade info -->
+        <div class="bg-arcade-info" id="bg-arcade-info" style="display:none;">
+          <div class="bg-stat-row"><span>Round</span><b id="arcade-round">1</b></div>
+          <div class="bg-stat-row"><span>Best</span><b id="arcade-best">0</b></div>
+        </div>
+        <!-- Deck Selector -->
+        <div class="bg-deck-selector" id="bg-deck-selector">
+          <label class="bg-label">Your Deck</label>
+          <div class="bg-deck-list" id="bg-deck-list"></div>
+        </div>
+        <!-- Launch -->
+        <button class="bg-launch-btn" id="bg-launch-btn" onclick="ui.launchMatch()" disabled>
+          ⚡ Select a Battleground
+        </button>
+        <div class="bg-quick-info">
+          <span>⭐ Wins: <b id="bg-wins-count">0</b></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== VS SHOWDOWN SCREEN ===== -->
+<div id="showdown-screen" class="screen showdown-bg">
+  <div class="showdown-container">
+    <!-- Player -->
+    <div class="showdown-player player-side">
+      <div class="showdown-deck-visual">
+        <div class="showdown-deck-back"></div>
+        <div class="showdown-deck-back showdown-deck-back-2"></div>
+      </div>
+      <div class="showdown-avatar-ring">
+        <canvas class="showdown-avatar-canvas" id="showdown-player-avatar" width="100" height="100"></canvas>
+      </div>
+      <div class="showdown-name" id="showdown-player-name">Commander</div>
+      <div class="showdown-rank" id="showdown-player-rank">Bronze I</div>
+      <div class="showdown-deck-tag" id="showdown-player-deck">My Deck</div>
+      <div class="showdown-stats">
+        <span>🃏 <b id="showdown-player-count">40</b></span>
+        <span>⭐ <b id="showdown-player-level">1</b></span>
+      </div>
+    </div>
+    <!-- VS -->
+    <div class="showdown-center">
+      <div class="showdown-bg-name" id="showdown-bg-name"></div>
+      <div class="showdown-vs">VS</div>
+      <div class="showdown-coin" id="showdown-coin">
+        <div class="coin-face front">⚡</div>
+        <div class="coin-face back">🛡️</div>
+      </div>
+      <div class="showdown-status" id="showdown-status">Searching opponent...</div>
+      <button class="showdown-fight-btn" id="showdown-fight-btn" style="display:none;" onclick="ui.launchBattle()">⚔️ BATTLE!</button>
+    </div>
+    <!-- Opponent -->
+    <div class="showdown-player opponent-side">
+      <div class="showdown-deck-visual">
+        <div class="showdown-deck-back opponent-deck-visual"></div>
+        <div class="showdown-deck-back opponent-deck-visual showdown-deck-back-2"></div>
+      </div>
+      <div class="showdown-avatar-ring opponent-ring">
+        <canvas class="showdown-avatar-canvas" id="showdown-opponent-avatar" width="100" height="100"></canvas>
+      </div>
+      <div class="showdown-name" id="showdown-opponent-name">Opponent</div>
+      <div class="showdown-rank" id="showdown-opponent-rank">Silver III</div>
+      <div class="showdown-deck-tag" id="showdown-opponent-deck">Enemy Deck</div>
+      <div class="showdown-stats">
+        <span>🃏 <b id="showdown-opponent-count">40</b></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== BATTLE SCREEN (Redesigned 3-Zone Layout) ===== -->
+<div id="battle-screen" class="screen">
+  <div class="battle-arena" id="battle-arena">
+
+    <!-- ===================== OPPONENT ZONE (top) ===================== -->
+    <div class="opp-zone">
+      <!-- Enemy commander bar (compact) -->
+      <div class="commander-bar enemy-bar" id="enemy-bar">
+        <!-- Left cluster: deck • graveyard • traps -->
+        <div class="info-cluster left-cluster">
+          <div class="stat-pile" id="enemy-deck-pile">
+            <div class="deck-card-back small"></div>
+            <span class="stat-count" id="enemy-deck-count">40</span>
+            <span class="stat-label">Deck</span>
+          </div>
+          <div class="stat-pile clickable" id="enemy-graveyard" onclick="ui.toggleGraveyard('enemy')">
+            <div class="gy-top-card" id="enemy-gy-card"></div>
+            <span class="stat-count" id="enemy-gy-count">0</span>
+            <span class="stat-label">GY</span>
+          </div>
+          <div class="stat-pile" id="enemy-trap-display">
+            <span class="trap-icon">🪤</span>
+            <span class="stat-count" id="enemy-trap-count">0</span>
+            <span class="stat-label">Traps</span>
+          </div>
+        </div>
+        <!-- Center cluster: avatar + name -->
+        <div class="info-cluster center-cluster">
+          <div class="avatar-wrap">
+            <div class="avatar-glow" id="enemy-avatar-glow"></div>
+            <div class="avatar" id="enemy-avatar">👾</div>
+          </div>
+          <div class="commander-meta">
+            <div class="commander-name" id="enemy-name">Opponent</div>
+            <div class="character-badge" id="enemy-character-badge"></div>
+            <div class="modifiers-row" id="enemy-modifiers"></div>
+          </div>
+        </div>
+        <!-- Right cluster: HP • shield • mana • power -->
+        <div class="info-cluster right-cluster">
+          <div class="stat-orb shield-orb">
+            <span class="stat-orb-val" id="enemy-shield">0</span>
+            <span class="stat-label">🛡️</span>
+          </div>
+          <div class="stat-orb hp-orb enemy-hp-target" id="enemy-hp-orb" onclick="ui.attackEnemyBase()">
+            <svg class="hp-ring-svg" viewBox="0 0 48 48">
+              <circle cx="24" cy="24" r="20" class="hp-ring-track"/>
+              <circle cx="24" cy="24" r="20" class="hp-ring-fill" id="enemy-hp-ring-svg"/>
+            </svg>
+            <span class="stat-orb-val" id="enemy-hp">30</span>
+            <span class="stat-label">❤️</span>
+          </div>
+          <div class="resource-bar mana-bar">
+            <div class="mana-crystals" id="enemy-mana-crystals"></div>
+            <span class="resource-label" id="enemy-energy">💎 0/0</span>
+          </div>
+          <div class="stat-orb power-orb">
+            <span class="stat-orb-val" id="enemy-power-display">⚡0</span>
+            <span class="stat-label">PWR</span>
+          </div>
+        </div>
+      </div>
+      <!-- Enemy hand (card backs) -->
+      <div class="hand-row enemy-hand" id="enemy-hand"></div>
+      <!-- Enemy battlefield -->
+      <div class="battle-row enemy-battle-row" id="enemy-battle-row"></div>
+    </div>
+
+    <!-- ===================== BATTLEGROUNG ZONE (middle) ===================== -->
+    <div class="mid-zone">
+
+      <!-- Battleground name banner -->
+      <div class="battleground-banner" id="battleground-banner">⚔️ Battleground</div>
+
+      <!-- Bases strip: enemy base row (top) + player base row (bottom) -->
+      <div class="base-strip enemy-base-strip">
+        <span class="base-strip-label">ENEMY BASE</span>
+        <div class="battle-row base-row enemy-base-row" id="enemy-base-row"></div>
+      </div>
+      <div class="base-strip player-base-strip">
+        <span class="base-strip-label">YOUR BASE</span>
+        <div class="battle-row base-row player-base-row" id="player-base-row"></div>
+      </div>
+
+      <!-- Bank / market phase area (toggleable) -->
+      <div class="bank-zone" id="bank-zone">
+        <div class="bank-header">
+          <div class="bank-phase-title">⚡ BANK PHASE <span id="bank-turn-label">Turn 1</span></div>
+          <div class="bank-mana-section">
+            <div class="mana-crystals-bar" id="bank-mana-crystals"></div>
+            <span class="bank-mana-text" id="bank-mana-text">1 / 1 Mana</span>
+          </div>
+          <button class="bank-end-btn" id="bank-end-btn" onclick="ui.endBankPhase()">End Bank Phase ▶</button>
+        </div>
+        <div class="bank-market-area">
+          <div class="bank-metadeck-pile" id="bank-metadeck-pile">
+            <div class="deck-card-back deck-3d"></div>
+            <span class="deck-count" id="bank-deck-remaining">—</span>
+            <span class="deck-label">Supply</span>
+          </div>
+          <div class="bank-market-slots" id="bank-cards"></div>
+        </div>
+        <div class="bank-hand-preview">
+          <div class="bank-hand-label">Your Hand</div>
+          <div class="bank-hand-cards" id="bank-hand-cards"></div>
+        </div>
+      </div>
+
+      <!-- Shared battlefield divider -->
+      <div class="battleground-divider">
+        <span class="divider-label">— Battlefield —</span>
+      </div>
+
+      <!-- Player battlefield row (within mid-zone for clear juxtaposition) -->
+      <div class="battle-row player-battle-row" id="player-battle-row"></div>
+
+    </div>
+
+    <!-- ===================== PLAYER ZONE (bottom) ===================== -->
+    <div class="player-zone">
+      <!-- Player hand -->
+      <div class="hand-row player-hand" id="player-hand"></div>
+      <!-- Player commander bar (wider, more prominent) -->
+      <div class="commander-bar player-bar" id="player-bar">
+        <!-- Left cluster: deck • graveyard • traps -->
+        <div class="info-cluster left-cluster">
+          <div class="stat-pile" id="player-deck-pile">
+            <div class="deck-card-back small"></div>
+            <span class="stat-count" id="player-deck-count">40</span>
+            <span class="stat-label">Deck</span>
+          </div>
+          <div class="stat-pile clickable" id="player-graveyard" onclick="ui.toggleGraveyard('player')">
+            <div class="gy-top-card" id="player-gy-card"></div>
+            <span class="stat-count" id="player-gy-count">0</span>
+            <span class="stat-label">GY</span>
+          </div>
+          <div class="stat-pile" id="player-trap-display">
+            <span class="trap-icon">🪤</span>
+            <span class="stat-count" id="player-trap-count">0</span>
+            <span class="stat-label">Traps</span>
+          </div>
+        </div>
+        <!-- Center cluster: avatar + name + modifiers -->
+        <div class="info-cluster center-cluster">
+          <div class="avatar-wrap">
+            <div class="avatar-glow" id="player-avatar-glow"></div>
+            <div class="avatar" id="player-avatar">🦾</div>
+          </div>
+          <div class="commander-meta">
+            <div class="commander-name" id="player-name">Commander</div>
+            <div class="character-badge" id="player-character-badge"></div>
+            <div class="modifiers-row" id="player-modifiers"></div>
+          </div>
+        </div>
+        <!-- Right cluster: HP • shield • mana • power -->
+        <div class="info-cluster right-cluster">
+          <div class="stat-orb shield-orb">
+            <span class="stat-orb-val" id="player-shield">0</span>
+            <span class="stat-label">🛡️</span>
+          </div>
+          <div class="stat-orb hp-orb">
+            <svg class="hp-ring-svg" viewBox="0 0 48 48">
+              <circle cx="24" cy="24" r="20" class="hp-ring-track"/>
+              <circle cx="24" cy="24" r="20" class="hp-ring-fill" id="player-hp-ring-svg"/>
+            </svg>
+            <span class="stat-orb-val" id="player-hp">30</span>
+            <span class="stat-label">❤️</span>
+          </div>
+          <div class="resource-bar mana-bar">
+            <div class="mana-crystals" id="player-mana-crystals"></div>
+            <span class="resource-label" id="player-energy">💎 0/0</span>
+          </div>
+          <div class="stat-orb power-orb">
+            <span class="stat-orb-val" id="player-power-display">⚡0</span>
+            <span class="stat-label">PWR</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Turn Timer Button (center-right) ===== -->
+    <button class="turn-timer-btn" id="turn-timer-btn" onclick="ui.endTurn()">
+      <span id="turn-phase-label">Your Turn</span>
+      <span id="turn-timer">20s</span>
+    </button>
+
+    <!-- ===== Phase Clock ===== -->
+    <div class="phase-clock" id="phase-clock">
+      <svg class="clock-svg" viewBox="0 0 60 60">
+        <circle cx="30" cy="30" r="26" class="clock-track"/>
+        <circle cx="30" cy="30" r="26" class="clock-fill" id="clock-fill-ring"/>
+        <line x1="30" y1="30" x2="30" y2="10" class="clock-hand-min" id="clock-hand-min"/>
+        <line x1="30" y1="30" x2="30" y2="16" class="clock-hand-sec" id="clock-hand-sec"/>
+        <circle cx="30" cy="30" r="3" class="clock-center-dot"/>
+      </svg>
+      <div class="clock-countdown" id="clock-countdown">—</div>
+      <div class="clock-phase-label" id="clock-phase-label">Phase</div>
+    </div>
+
+    <!-- ===== Danger Level Indicator ===== -->
+    <div class="danger-level-indicator" id="danger-level-indicator" style="display:none;">☀️ DANGER</div>
+
+    <!-- ===== Battle Log (Slay-the-Spire style side feed) ===== -->
+    <div class="battle-feed" id="battle-feed">
+      <div class="battle-feed-title" onclick="document.getElementById('battle-feed').classList.toggle('collapsed')">📜 LOG</div>
+      <div class="battle-feed-entries" id="battle-feed-entries"></div>
+    </div>
+
+    <!-- ===== Attack arrow overlay (Hearthstone style) ===== -->
+    <svg id="attack-arrow-svg" style="position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:900;">
+      <defs>
+        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#ff2a6d"/>
+        </marker>
+      </defs>
+      <path id="attack-arrow-path" d="" fill="none" stroke="#ff2a6d" stroke-width="4"
+        stroke-dasharray="10 6" marker-end="url(#arrowhead)" style="filter: drop-shadow(0 0 6px #ff2a6d); display:none;"/>
+    </svg>
+
+    <!-- ===== Enemy intent bar (Slay the Spire style) ===== -->
+    <div class="enemy-intent-bar" id="enemy-intent-bar" style="display:none;">
+      <span class="intent-icon" id="intent-icon">⚔️</span>
+      <span class="intent-char" id="intent-character"></span>
+      <span class="intent-text" id="intent-text">Enemy is thinking…</span>
+    </div>
+
+
+  </div>
+
+  <!-- ===== Graveyard Modal ===== -->
+  <div class="graveyard-modal" id="graveyard-modal" onclick="ui.closeGraveyard()">
+    <div class="gy-modal-content" onclick="event.stopPropagation()">
+      <h3 id="gy-modal-title">Graveyard</h3>
+      <div class="gy-modal-cards" id="gy-modal-cards"></div>
+      <button class="sidebar-btn sidebar-btn-clear" onclick="ui.closeGraveyard()">Close</button>
+    </div>
+  </div>
+
+  <!-- ===== Battle controls bottom bar ===== -->
+  <div class="battle-controls-bar" style="position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;">
+    <button class="battle-ctrl-btn" onclick="ui.forfeitBattle()">Forfeit</button>
+    <button class="battle-ctrl-btn" onclick="ui.toggleBattleLog()">📋 Log</button>
+  </div>
+</div>
+
+<!-- ===== LORE / WORLD ===== -->
+<div id="lore-screen" class="screen">
+<div class="screen-header">
+<button class="back-button" onclick="ui.showScreen('title')">← Back</button>
+<h2>World of Synthtopia</h2>
+</div>
+<div class="screen-content">
+<div class="lore-text">
+<h3>The Great Vault</h3>
+<p>In the year 2187, the 6 Neo-Cities discovered the Great Vault — an ancient repository of infinite power buried beneath the ruins of Old Earth. Each city sent their finest Commanders to claim it, and thus began the Synthopwars.</p>
+
+<h3>The 6 Neo-Cities</h3>
+<p><strong style="color: var(--accent-cyan);">Dalian Block</strong> — Cyber-rain drenched streets where information is the true currency. Traps are hidden in the shadows.</p>
+<p><strong style="color: var(--accent-orange);">Mashhad Megacity</strong> — Desert storm wasteland where only the fast survive. Speed is everything here.</p>
+<p><strong style="color: var(--accent-blue);">London Reality</strong> — Fog-shrouded metropolis where visibility is a luxury. Deception is an art form.</p>
+<p><strong style="color: var(--accent-red);">Star Beijing</strong> — Neon overload where technology burns bright and hot. Energy courses through every street.</p>
+<p><strong style="color: var(--accent-gold);">People's Republic of Lahore</strong> — Golden hour sanctuary where healing and restoration thrive.</p>
+<p><strong style="color: var(--accent-purple);">Future Odessa</strong> — Gravity-warped zone where reality bends. Nothing is as it seems.</p>
+
+<h3>The 9 Characters</h3>
+<p>Before a Commander builds a deck, they choose <em>what they are</em>. Nine Characters — each with 8 signature cards found nowhere else, a color, and a place on five design axes (Cost, Stats, Engine, Choice, Tempo):</p>
+<p><strong style="color:#9fb4c7;">🤖 Synthetic</strong> — no flourish, no waste; the best raw stats-per-cost in the game. &nbsp;
+<strong style="color:#f92aff;">🦠 Memetic</strong> — an idea doesn't need a body to spread; replicates and infects. &nbsp;
+<strong style="color:#c9822e;">⚗️ Refinist</strong> — nothing is waste, everything is fuel for something bigger.</p>
+<p><strong style="color:#b0203c;">🕯️ Technopriest</strong> — sacrifice as liturgy; every fallen ally sings louder. &nbsp;
+<strong style="color:#7cff2a;">🦾 Cyborg</strong> — you don't out-think the Redline, you get run over by it. &nbsp;
+<strong style="color:#1f9e6e;">🌱 Biopure</strong> — augment nothing, grow everything.</p>
+<p><strong style="color:#a48cff;">👻 Ethereal</strong> — you cannot counter what isn't fully there yet. &nbsp;
+<strong style="color:#2f6fed;">🐝 Organizer</strong> — one of us is nothing, forty of us is a supply chain. &nbsp;
+<strong style="color:#4a1f5c;">♟️ Schemist</strong> — the winning move was decided three turns before you noticed.</p>
+
+<h3>The 8 Tribes</h3>
+<p>Cards also carry a Tribe (Team) — a culture, not a class. Any Character's deck can run any Tribe's cards; fielding enough of one Tribe together grants Ally/Synergy bonuses. From the aggressive Overchargers to the unpredictable Chaos Cult, every battle is a clash of ideologies as much as armies — layered on top of the Character you chose to fight as.</p>
+
+<h3>The Cards</h3>
+<p>Each card represents a unit, spell, trap, or structure from the Synthtopia universe. They carry the power of the 7 values: Attack, Defense, Power, Production, Cost, Type, and Team. The rarest cards — the Mythics — are said to contain fragments of the Vault itself.</p>
+
+<h3>Victory Conditions</h3>
+<p>Win by reducing your opponent's Base HP to 0, controlling their structures for 3 turns, or activating the legendary 5-card Combo Win. The Great Vault rewards only the most cunning Commanders.</p>
+</div>
+</div>
+</div>
+
+<!-- ===== FRIENDS ===== -->
+<div id="friends-screen" class="screen">
+<div class="screen-header">
+<button class="back-button" onclick="ui.showScreen('title')">← Back</button>
+<h2>Friends</h2>
+<div class="currency-bar">
+<span class="credits">💎 <span id="friend-credits">1000</span></span>
+<span class="synth">⚚ <span id="friend-synth">50</span></span>
+</div>
+</div>
+<div class="screen-content">
+<div class="friends-layout">
+<div class="friends-panel">
+<h3 class="friends-panel-title">Online Friends</h3>
+<div class="friends-list" id="friends-list"></div>
+<div class="friends-add-row">
+<input type="text" id="add-friend-input" class="friends-add-input" placeholder="Enter username">
+<button class="menu-button friends-add-btn" onclick="ui.addFriend()">Add Friend</button>
+</div>
+</div>
+<div class="friends-panel chat-panel">
+<h3 class="friends-panel-title">Chat</h3>
+<div class="chat-messages" id="friends-chat"></div>
+<div class="chat-input">
+<input type="text" id="friends-chat-input" placeholder="Message..." onkeypress="if(event.key==='Enter')ui.sendFriendChat()">
+<button onclick="ui.sendFriendChat()">Send</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ===== SETTINGS ===== -->
+<div id="settings-screen" class="screen">
+<div class="screen-header">
+<button class="back-button" onclick="ui.showScreen('title')">← Back</button>
+<h2>Settings</h2>
+</div>
+<div class="screen-content">
+<div class="settings-panel">
+<div class="settings-section">
+<h3>Audio</h3>
+<div class="setting-item">
+<div>
+<div class="setting-label">Master Volume</div>
+<div class="setting-desc">Overall game volume</div>
+</div>
+<input type="range" id="master-volume" min="0" max="100" value="100" onchange="ui.updateAudio('master', this.value)">
+</div>
+<div class="setting-item">
+<div>
+<div class="setting-label">Music Volume</div>
+<div class="setting-desc">Background ambient music</div>
+</div>
+<input type="range" id="music-volume" min="0" max="100" value="60" onchange="ui.updateAudio('music', this.value)">
+</div>
+<div class="setting-item">
+<div>
+<div class="setting-label">SFX Volume</div>
+<div class="setting-desc">Sound effects and battle audio</div>
+</div>
+<input type="range" id="sfx-volume" min="0" max="100" value="80" onchange="ui.updateAudio('sfx', this.value)">
+</div>
+<div class="setting-item">
+<div>
+<div class="setting-label">Mute All</div>
+</div>
+<div class="toggle" id="mute-toggle" onclick="ui.toggleMute()"></div>
+</div>
+</div>
+
+<div class="settings-section">
+<h3>Visual</h3>
+<div class="setting-item">
+<div>
+<div class="setting-label">Card Size</div>
+<div class="setting-desc">Adjust card display size</div>
+</div>
+<input type="range" id="card-size" min="80" max="150" value="100" onchange="ui.updateCardSize(this.value)">
+</div>
+<div class="setting-item">
+<div>
+<div class="setting-label">Animation Speed</div>
+<div class="setting-desc">Faster or slower battle animations</div>
+</div>
+<select id="anim-speed" style="background: var(--bg-dark); border: 1px solid var(--border-subtle); color: var(--text-primary); padding: 5px;" onchange="ui.updateAnimSpeed(this.value)">
+<option value="0.5">Fast (0.5x)</option>
+<option value="1" selected>Normal (1x)</option>
+<option value="1.5">Slow (1.5x)</option>
+<option value="2">Cinematic (2x)</option>
+</select>
+</div>
+<div class="setting-item">
+<div>
+<div class="setting-label">Colorblind Mode</div>
+<div class="setting-desc">Patterns on card borders for accessibility</div>
+</div>
+<div class="toggle" id="colorblind-toggle" onclick="ui.toggleColorblind()"></div>
+</div>
+<div class="setting-item">
+<div>
+<div class="setting-label">High Contrast</div>
+<div class="setting-desc">Enhanced UI contrast</div>
+</div>
+<div class="toggle" id="contrast-toggle" onclick="ui.toggleContrast()"></div>
+</div>
+</div>
+
+<div class="settings-section">
+<h3>Gameplay</h3>
+<div class="setting-item">
+<div>
+<div class="setting-label">Auto-Pass</div>
+<div class="setting-desc">Automatically pass turn when no actions available</div>
+</div>
+<div class="toggle active" id="autopass-toggle" onclick="ui.toggleSetting(this, 'autopass')"></div>
+</div>
+<div class="setting-item">
+<div>
+<div class="setting-label">Confirm Attacks</div>
+<div class="setting-desc">Show confirmation before attacking</div>
+</div>
+<div class="toggle" id="confirm-attack-toggle" onclick="ui.toggleSetting(this, 'confirmAttack')"></div>
+</div>
+<div class="setting-item">
+<div>
+<div class="setting-label">Turn Timer Warning</div>
+<div class="setting-desc">Flash warning at 10 seconds remaining</div>
+</div>
+<div class="toggle active" id="timer-warning-toggle" onclick="ui.toggleSetting(this, 'timerWarning')"></div>
+</div>
+</div>
+
+<div class="settings-section">
+<h3>Privacy</h3>
+<div class="setting-item">
+<div>
+<div class="setting-label">Profile Visibility</div>
+<div class="setting-desc">Who can see your profile and stats</div>
+</div>
+<select id="privacy-level" style="background: var(--bg-dark); border: 1px solid var(--border-subtle); color: var(--text-primary); padding: 5px;" onchange="ui.updatePrivacy(this.value)">
+<option value="public">Public</option>
+<option value="contacts" selected>Friends Only</option>
+<option value="secret">Invisible</option>
+</select>
+</div>
+</div>
+
+<div class="settings-section">
+<h3>Card Backs</h3>
+<div class="setting-item">
+<div>
+<div class="setting-label">Current Card Back</div>
+<div class="setting-desc">Select your card back design</div>
+</div>
+<div style="display: flex; gap: 10px;">
+<div class="card-back card-back-back1" style="width: 60px; height: 80px; cursor: pointer;" onclick="ui.selectCardBack('back1')"></div>
+<div class="card-back card-back-back2" style="width: 60px; height: 80px; cursor: pointer;" onclick="ui.selectCardBack('back2')"></div>
+<div class="card-back card-back-back3" style="width: 60px; height: 80px; cursor: pointer;" onclick="ui.selectCardBack('back3')"></div>
+<div class="card-back card-back-back4" style="width: 60px; height: 80px; cursor: pointer;" onclick="ui.selectCardBack('back4')"></div>
+<div class="card-back card-back-nft" style="width: 60px; height: 80px; cursor: pointer;" onclick="ui.selectCardBack('nft')"></div>
+</div>
+</div>
+</div>
+
+<div class="settings-section">
+<h3>Data</h3>
+<div class="setting-item">
+<div>
+<div class="setting-label">Export Deck</div>
+<div class="setting-desc">Save your deck as a code</div>
+</div>
+<button class="menu-button" style="width: auto; padding: 8px 16px; font-size: 0.8rem;" onclick="ui.exportDeck()">Export</button>
+</div>
+<div class="setting-item">
+<div>
+<div class="setting-label">Import Deck</div>
+<div class="setting-desc">Load a deck from a code</div>
+</div>
+<button class="menu-button" style="width: auto; padding: 8px 16px; font-size: 0.8rem;" onclick="ui.importDeck()">Import</button>
+</div>
+<div class="setting-item">
+<div>
+<div class="setting-label">Reset All Data</div>
+<div class="setting-desc">Clear all saved progress</div>
+</div>
+<button class="menu-button" style="width: auto; padding: 8px 16px; font-size: 0.8rem; background: var(--accent-red); border-color: var(--accent-red); color: var(--accent-red);" onclick="ui.resetData()">Reset</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ===== VICTORY / DEFEAT OVERLAY (V2 — match recap) ===== -->
+<div id="result-overlay" class="modal-overlay result-overlay-v2" style="display: none;">
+  <div class="result-recap-container">
+
+    <!-- Victory / Defeat banner -->
+    <div class="result-banner">
+      <h1 id="result-title">VICTORY!</h1>
+      <p id="result-message">You have conquered the battlefield!</p>
+    </div>
+
+    <!-- Win condition + opponent info -->
+    <div class="result-context-row">
+      <div id="result-win-condition" class="result-win-badge">⚔️ ANNIHILATION</div>
+      <div class="result-opp-info">
+        <span class="result-context-label">Battleground</span>
+        <span id="result-battleground-name" class="result-context-value">—</span>
+      </div>
+      <div class="result-opp-info">
+        <span class="result-context-label">Opponent</span>
+        <span id="result-opp-name" class="result-context-value">—</span>
+      </div>
+      <div class="result-opp-info">
+        <span class="result-context-label">Rank</span>
+        <span id="result-rank-display" class="result-context-value">—</span>
+      </div>
+    </div>
+
+    <!-- 2-column stat grid -->
+    <div id="result-stats-grid" class="result-stat-grid">
+      <div class="result-stat-card">
+        <div class="result-stat-icon">⏱️</div>
+        <div class="result-stat-value" id="result-turns-played">0</div>
+        <div class="result-stat-label">Turns Played</div>
+      </div>
+      <div class="result-stat-card">
+        <div class="result-stat-icon">🗡️</div>
+        <div class="result-stat-value" id="result-damage-dealt">0</div>
+        <div class="result-stat-label">Damage Dealt</div>
+      </div>
+      <div class="result-stat-card">
+        <div class="result-stat-icon">🛡️</div>
+        <div class="result-stat-value" id="result-damage-taken">0</div>
+        <div class="result-stat-label">Damage Taken</div>
+      </div>
+      <div class="result-stat-card">
+        <div class="result-stat-icon">🃏</div>
+        <div class="result-stat-value" id="result-cards-played">0</div>
+        <div class="result-stat-label">Cards Played</div>
+      </div>
+      <div class="result-stat-card">
+        <div class="result-stat-icon">💀</div>
+        <div class="result-stat-value" id="result-creatures-killed">0</div>
+        <div class="result-stat-label">Creatures Killed</div>
+      </div>
+      <div class="result-stat-card">
+        <div class="result-stat-icon">✨</div>
+        <div class="result-stat-value" id="result-spells-cast">0</div>
+        <div class="result-stat-label">Spells Cast</div>
+      </div>
+      <div class="result-stat-card">
+        <div class="result-stat-icon">🔗</div>
+        <div class="result-stat-value" id="result-combos-triggered">0</div>
+        <div class="result-stat-label">Combos Triggered</div>
+      </div>
+      <div class="result-stat-card">
+        <div class="result-stat-icon">💎</div>
+        <div class="result-stat-value" id="result-credits-earned">0</div>
+        <div class="result-stat-label">Credits Earned</div>
+      </div>
+    </div>
+
+    <!-- Battle History (last 5 events) -->
+    <div class="result-history-section">
+      <h3 class="result-history-title">📜 Battle History</h3>
+      <div id="result-battle-history" class="result-history-list">
+        <div class="result-history-empty">No battle events recorded.</div>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="result-actions">
+      <button id="result-replay-btn" class="menu-button result-action-btn" onclick="ui.toggleBattleLog()">📜 Battle Log</button>
+      <button id="result-rematch-btn" class="menu-button result-action-btn result-action-primary" onclick="ui.showScreen('battleground-select')">⚔️ Play Again</button>
+      <button class="menu-button result-action-btn" onclick="ui.showScreen('title')">🏠 Main Menu</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== BATTLE LOG MODAL ===== -->
+<div id="battlelog-modal" class="modal-overlay">
+<div class="modal">
+<button class="modal-close" onclick="ui.toggleBattleLog()">×</button>
+<h2>Battle Log</h2>
+<div id="battle-log-content" style="max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;"></div>
+</div>
+</div>
+
+<!-- ===== TOOLTIP ===== -->
+<div id="card-tooltip" class="card-tooltip"></div>
+
+<!-- ===== COMBO FLASH OVERLAY ===== -->
+<div id="combo-flash-overlay" class="combo-flash-overlay"></div>
+<!-- ===== SCREEN SHAKE WRAPPER ===== -->
+<div id="screen-shake" class="screen-shake-wrapper">
+<!-- ===== PARTICLES CANVAS ===== -->
+<canvas id="shader-canvas"></canvas>
+<canvas id="particles" style="position: fixed; inset: 0; pointer-events: none; z-index: 999;"></canvas>
+<canvas id="vfx-canvas" style="position: fixed; inset: 0; pointer-events: none; z-index: 998;"></canvas>
+
+<!-- Scripts -->
+<script src="js/cards.js?v=9"></script>
+<script src="js/characters.js?v=1"></script>
+<script src="js/audio.js?v=9"></script>
+<script src="js/achievements.js"></script>
+<script src="js/leaderboard.js"></script>
+<script src="js/quests.js"></script>
+<script src="js/shaders.js?v=9"></script>
+<script src="js/vfx.js?v=1"></script>
+<script src="js/game.js?v=10"></script>
+<script src="js/multiplayer.js"></script>
+<script>
+// ===== UI CONTROLLER =====
+const ui = {
+currentScreen: 'title',
+selectedBattleground: null,
+selectedCardBack: 'back1',
+selectedDeckName: null,
+selectedCharacter: null, // one of CHARACTER_LIST — see js/characters.js
+deck: [],
+game: null,
+savedDecks: {}, // name -> cardIds array
+animSpeed: 1,
+phaseTimer: null,
+phaseTimeLeft: 0,
+phaseTotalTime: 60,
+settings: {
+autopass: true,
+confirmAttack: false,
+timerWarning: true,
+colorblind: false,
+highContrast: false,
+privacy: 'contacts'
+},
+
+init() {
+this.loadSavedData();
+this.renderCardCollection();
+this.renderBattlegrounds();
+this.renderFriends();
+this.renderChat();
+audio.startMusic();
+social.startSimulation();
+this.startTimerLoop();
+this.startParticleLoop();
+this.setupGlobalEventListeners();
+// Initialize WebGL shader engine
+if (typeof SynthShaderEngine !== 'undefined') {
+  var ok = SynthShaderEngine.init('shader-canvas');
+  if (ok) {
+    SynthShaderEngine.startLoop();
+    console.log('Shader engine initialized');
+  } else {
+    console.warn('Shader engine not available — WebGL2 unsupported, using CSS fallbacks');
+  }
+}
+// Initialize VFX engine
+if (typeof SynthVFX !== 'undefined') {
+  SynthVFX.init();
+  SynthVFX.startLoop();
+  console.log('VFX engine initialized');
+}
+},
+
+setupGlobalEventListeners() {
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+if (e.ctrlKey && e.key === 's') { e.preventDefault(); if (this.currentScreen === 'deckbuilder') this.saveDeck(); }
+if (e.ctrlKey && e.key === 'z') { e.preventDefault(); if (this.currentScreen === 'deckbuilder') this.undoDeckAction(); }
+if (e.key === '/' && this.currentScreen === 'deckbuilder') { e.preventDefault(); document.getElementById('card-search-input')?.focus(); }
+if (e.key === 'Escape') { this.hideTooltip(); document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active')); }
+});
+},
+
+// ===== BATTLE EVENT HANDLERS (Section N — keyword animations) =====
+setupBattleEventHandlers() {
+if (!this.game) return;
+var self = this;
+
+this.game.on('attack', function(data) {
+  // VFX: attack trail from attacker to target
+  if (typeof SynthVFX !== 'undefined') {
+    var atkEl = document.querySelector('.card[data-instance="' + data.attacker.instanceId + '"]');
+    var tgtEl;
+    if (data.target && data.target.instanceId) {
+      tgtEl = document.querySelector('.card[data-instance="' + data.target.instanceId + '"]');
+    } else if (data.targetPlayer) {
+      tgtEl = document.querySelector('.enemy-hp-target') || document.getElementById('enemy-hp-orb');
+    }
+    if (atkEl && tgtEl) {
+      var rarityColor = { common: '#9ab', uncommon: '#8f8', rare: '#8af', epic: '#c6f', legendary: '#fd8', mythic: '#f8f' };
+      var trailColor = rarityColor[data.rarity] || '#ff2a6d';
+      SynthVFX.spawnTrail(atkEl.getBoundingClientRect().left + atkEl.offsetWidth/2, atkEl.getBoundingClientRect().top + atkEl.offsetHeight/2, tgtEl.getBoundingClientRect().left + tgtEl.offsetWidth/2, tgtEl.getBoundingClientRect().top + tgtEl.offsetHeight/2, { color: trailColor, width: 3 });
+    }
+  }
+  // Find the attacker card element and trigger attack animation
+  setTimeout(function() {
+    var cards = document.querySelectorAll('.card[data-instance="' + data.attacker.instanceId + '"]');
+    cards.forEach(function(c) {
+      c.classList.add('card-attack-anim');
+      c.setAttribute('data-rarity', data.rarity || 'common');
+      setTimeout(function() { c.classList.remove('card-attack-anim'); }, 600);
+    });
+  }, 50);
+});
+
+this.game.on('damage', function(data) {
+  // VFX: damage float + particles
+  if (typeof SynthVFX !== 'undefined') {
+    var targetEl;
+    if (data.target && data.target.instanceId) {
+      targetEl = document.querySelector('.card[data-instance="' + data.target.instanceId + '"]');
+      if (targetEl) {
+        var rect = targetEl.getBoundingClientRect();
+        SynthVFX.showDamageFloat(rect.left + rect.width/2, rect.top + rect.height/4, data.amount || 0, data.type || 'normal');
+      }
+    }
+    if (data.amount >= 7) {
+      SynthVFX.screenShake(8, 300);
+    }
+    if (data.amount >= 10) {
+      SynthVFX.screenFlash('#ff2a6d', 200);
+    }
+  }
+  if (data.target && data.target !== self.game.player && data.target !== self.game.enemy) {
+    // Creature damage — hit flash
+    var cards = document.querySelectorAll('.card[data-instance="' + data.target.instanceId + '"]');
+    cards.forEach(function(c) {
+      c.classList.add('hit-flash');
+      setTimeout(function() { c.classList.remove('hit-flash'); }, 300);
+    });
+  }
+});
+
+this.game.on('wardAbsorb', function(data) {
+  var cards = document.querySelectorAll('.card[data-instance="' + data.target.instanceId + '"]');
+  cards.forEach(function(c) { self.showKeywordEffect(c, 'ward'); });
+  self.showKeywordText(cards[0], 'ward', 'WARD!');
+});
+
+this.game.on('poisonApplied', function(data) {
+  var cards = document.querySelectorAll('.card[data-instance="' + data.target.instanceId + '"]');
+  cards.forEach(function(c) { self.showKeywordEffect(c, 'poison'); });
+  self.showKeywordText(cards[0], 'poison', 'POISONED');
+});
+
+this.game.on('silenceApplied', function(data) {
+  var cards = document.querySelectorAll('.card[data-instance="' + data.target.instanceId + '"]');
+  cards.forEach(function(c) { self.showKeywordEffect(c, 'silence'); });
+  self.showKeywordText(cards[0], 'silence', 'SILENCED');
+});
+
+this.game.on('immortalSave', function(data) {
+  var cards = document.querySelectorAll('.card[data-instance="' + data.target.instanceId + '"]');
+  cards.forEach(function(c) { self.showKeywordEffect(c, 'immortal'); });
+  self.showKeywordText(cards[0], 'immortal', 'IMMORTAL!');
+});
+
+this.game.on('structureDamage', function(data) {
+  var cards = document.querySelectorAll('.card[data-instance="' + data.structure.instanceId + '"]');
+  cards.forEach(function(c) {
+    c.classList.add('hit-flash');
+    setTimeout(function() { c.classList.remove('hit-flash'); }, 300);
+    // Update damage state
+    var hpPct = (data.structure.currentHp / data.structure.health) * 100;
+    c.classList.remove('battle-damaged-light', 'battle-damaged-medium', 'battle-damaged-critical');
+    if (hpPct < 30) c.classList.add('battle-damaged-critical');
+    else if (hpPct < 60) c.classList.add('battle-damaged-medium');
+    else if (hpPct < 90) c.classList.add('battle-damaged-light');
+  });
+  try { audio.play('structure_destroyed'); } catch(e) {}
+});
+
+this.game.on('combo', function(data) {
+  var text = data.type || 'COMBO';
+  var color = '#ffd700';
+  if (data.rarity === 'legendary') color = '#ffd700';
+  else if (data.rarity === 'epic') color = '#bc13fe';
+  else if (data.rarity === 'rare') color = '#00d9ff';
+  self.comboFlashEnhanced(text, color, data.rarity);
+  // Highlight combo cards
+  if (data.cards) {
+    data.cards.forEach(function(card) {
+      var cardEls = document.querySelectorAll('.card[data-instance="' + card.instanceId + '"]');
+      cardEls.forEach(function(c) {
+        c.classList.add('combo-active');
+        setTimeout(function() { c.classList.remove('combo-active'); }, 800);
+      });
+    });
+  }
+});
+
+this.game.on('synergyEffect', function(data) {
+  // Show synergy wave
+  var wave = document.createElement('div');
+  wave.className = 'synergy-wave';
+  wave.style.borderColor = TEAM_COLORS[data.team] || '#ffd700';
+  document.body.appendChild(wave);
+  setTimeout(function() { wave.remove(); }, 1000);
+  // VFX: team-colored particles burst
+  if (typeof SynthVFX !== 'undefined') {
+    var arena = document.getElementById('battle-arena');
+    if (arena) {
+      var rect = arena.getBoundingClientRect();
+      SynthVFX.spawnParticles(rect.left + rect.width/2, rect.top + rect.height/2, {
+        count: 20, color: TEAM_COLORS[data.team] || '#ffd700', type: 'star', life: 40, gravity: -0.03
+      });
+    }
+  }
+});
+
+this.game.on('abilityTrigger', function(data) {
+  // VFX: keyword activation glow on card
+  if (typeof SynthVFX !== 'undefined' && data.card && data.type) {
+    var cards = document.querySelectorAll('.card[data-instance="' + data.card.instanceId + '"]');
+    cards.forEach(function(c) {
+      SynthVFX.showKeywordGlow(c, data.type);
+    });
+  }
+});
+
+this.game.on('playCardEffects', function(data) {
+  // VFX: additional card effects glow
+  if (typeof SynthVFX !== 'undefined' && data.card) {
+    setTimeout(function() {
+      var cards = document.querySelectorAll('.card[data-instance="' + data.card.instanceId + '"]');
+      cards.forEach(function(c) {
+        c.classList.add('card-glow-active');
+        setTimeout(function() { c.classList.remove('card-glow-active'); }, 800);
+      });
+    }, 200);
+  }
+});
+
+this.game.on('victory', function(data) {
+  self.showVictoryFullscreen();
+  try { audio.play('victory'); } catch(e) {}
+});
+
+this.game.on('defeat', function(data) {
+  self.showDefeatFullscreen();
+  try { audio.play('defeat'); } catch(e) {}
+});
+
+this.game.on('turnStart', function(data) {
+  self.showTurnTransition();
+  self.updatePlayableCards();
+  self.checkHpWarning();
+});
+
+this.game.on('conspiracyReveal', function(data) {
+  self.comboFlashEnhanced('CONSPIRACY!', '#ff6b35', 'epic');
+  try { audio.play('conspiracy_reveal'); } catch(e) {}
+});
+
+this.game.on('gearEquipped', function(data) {
+  if (data.target) {
+    var cards = document.querySelectorAll('.card[data-instance="' + data.target.instanceId + '"]');
+    cards.forEach(function(c) { self.showKeywordEffect(c, 'fortify'); });
+  }
+  try { audio.play('gear_equip'); } catch(e) {}
+});
+
+this.game.on('buyCard', function(data) {
+  try { audio.play('click'); } catch(e) {}
+});
+},
+
+deckHistory: [],
+undoDeckAction() {
+if (this.deckHistory.length < 1) return;
+this.deck = this.deckHistory.pop();
+this.renderDeck();
+this.renderCardCollection();
+audio.play('click');
+},
+
+comboFlash(text, color) {
+var overlay = document.getElementById('combo-flash-overlay');
+if (!overlay) return;
+overlay.textContent = text;
+overlay.style.borderColor = color || '#ffd700';
+overlay.style.color = color || '#ffd700';
+overlay.style.boxShadow = '0 0 60px ' + (color || '#ffd700') + ', 0 0 120px ' + (color || '#ffd700') + '44';
+overlay.classList.add('active');
+setTimeout(function() { overlay.classList.remove('active'); }, 1200);
+},
+
+screenShake(intensity) {
+var wrapper = document.getElementById('screen-shake');
+if (!wrapper) return;
+wrapper.style.animation = 'none';
+void wrapper.offsetWidth;
+wrapper.style.animation = 'screenShake ' + (intensity || 0.4) + 's ease-in-out';
+setTimeout(function() { wrapper.style.animation = ''; }, (intensity || 0.4) * 1000 + 50);
+},
+
+showDamageFloat(x, y, amount, type) {
+var float = document.createElement('div');
+float.className = 'dmg-float';
+if (type === 'heal') float.classList.add('dmg-heal');
+else if (amount >= 7) float.classList.add('dmg-critical');
+else if (amount >= 4) float.classList.add('dmg-high');
+float.style.left = x + 'px';
+float.style.top = y + 'px';
+var icon = type === 'heal' ? '+' : '-';
+float.textContent = icon + amount;
+var color = type === 'heal' ? '#05ffa1' : type === 'magic' ? '#00d9ff' : type === 'true' ? '#ffd700' : type === 'poison' ? '#05ffa1' : '#fff';
+float.style.color = color;
+document.body.appendChild(float);
+setTimeout(function() { float.remove(); }, 1200);
+},
+
+// ===== KEYWORD COMBAT TEXT (Section N) =====
+showKeywordText(cardElement, keyword, text) {
+if (!cardElement) return;
+var rect = cardElement.getBoundingClientRect();
+var float = document.createElement('div');
+float.className = 'kw-combat-text kw-text-' + keyword.toLowerCase();
+float.textContent = text;
+float.style.left = (rect.left + rect.width / 2) + 'px';
+float.style.top = (rect.top - 10) + 'px';
+float.style.position = 'fixed';
+document.body.appendChild(float);
+setTimeout(function() { float.remove(); }, 1000);
+
+// Also trigger visual effect
+this.showKeywordEffect(cardElement, keyword);
+},
+
+showKeywordEffect(cardElement, keyword) {
+if (!cardElement) return;
+var kw = keyword.toLowerCase();
+var fx = document.createElement('div');
+fx.className = 'kw-' + kw + '-fx';
+cardElement.appendChild(fx);
+// Auto-remove after animation
+setTimeout(function() { if (fx.parentNode) fx.remove(); }, 1000);
+
+// Play sound
+if (audio && audio.play) {
+  try { audio.play(kw); } catch(e) {}
+}
+},
+
+// ===== PLAYABLE CARD INDICATOR (Section Q) =====
+updatePlayableCards() {
+if (!this.game || this.game.state !== 'battle') return;
+var self = this;
+var handContainer = document.getElementById('player-hand');
+if (!handContainer) return;
+var cards = handContainer.querySelectorAll('.card');
+cards.forEach(function(cardEl) {
+  var cardId = cardEl.dataset.id;
+  var card = self.game.player.hand.find(function(c) { return c.id === cardId || c.instanceId === cardEl.dataset.instance; });
+  if (!card) return;
+  var cost = self.game.getEffectiveCost(self.game.player, card);
+  if (self.game.player.power >= cost) {
+    cardEl.classList.add('playable');
+    cardEl.classList.remove('unaffordable');
+  } else {
+    cardEl.classList.add('unaffordable');
+    cardEl.classList.remove('playable');
+  }
+});
+},
+
+// ===== TARGETING SYSTEM (Section Q) =====
+targetingMode: false,
+targetingSource: null,
+
+startTargeting(sourceCardEl) {
+this.targetingMode = true;
+this.targetingSource = sourceCardEl;
+// Highlight valid targets
+var enemyRow = document.getElementById('enemy-battle-row');
+if (enemyRow) {
+  var enemyCards = enemyRow.querySelectorAll('.card');
+  enemyCards.forEach(function(c) { c.classList.add('valid-target'); });
+}
+},
+
+endTargeting() {
+this.targetingMode = false;
+this.targetingSource = null;
+document.querySelectorAll('.valid-target').forEach(function(c) { c.classList.remove('valid-target'); });
+},
+
+// ===== PHASE INDICATOR (Section Q) =====
+showPhaseIndicator(phase) {
+var indicator = document.querySelector('.phase-indicator');
+if (!indicator) {
+  indicator = document.createElement('div');
+  indicator.className = 'phase-indicator';
+  document.getElementById('battle-arena')?.appendChild(indicator);
+}
+if (indicator) {
+  indicator.textContent = phase;
+  indicator.style.opacity = '1';
+  setTimeout(function() { indicator.style.opacity = '0'; }, 2000);
+}
+},
+
+// ===== HP LOW WARNING (Section R) =====
+checkHpWarning() {
+if (!this.game || this.game.state !== 'battle') return;
+var warning = document.querySelector('.hp-low-warning');
+if (this.game.player.hp <= this.game.player.maxHp * 0.3) {
+  if (!warning) {
+    warning = document.createElement('div');
+    warning.className = 'hp-low-warning';
+    document.body.appendChild(warning);
+  }
+} else {
+  if (warning) warning.remove();
+}
+},
+
+// ===== FULLSCREEN VICTORY/DEFEAT (Section R) =====
+showVictoryFullscreen() {
+var overlay = document.createElement('div');
+overlay.className = 'victory-overlay-full';
+overlay.innerHTML = '<div class="victory-text-big">VICTORY</div>';
+document.body.appendChild(overlay);
+// Spawn confetti
+for (var i = 0; i < 50; i++) {
+  var piece = document.createElement('div');
+  piece.className = 'confetti-piece';
+  piece.style.left = Math.random() * 100 + 'vw';
+  piece.style.animationDelay = Math.random() * 0.5 + 's';
+  piece.style.animationDuration = (1.5 + Math.random()) + 's';
+  piece.style.background = ['#ffd700', '#ff2a6d', '#00d9ff', '#05ffa1', '#bc13fe'][Math.floor(Math.random() * 5)];
+  overlay.appendChild(piece);
+}
+setTimeout(function() { overlay.remove(); }, 3000);
+},
+
+showDefeatFullscreen() {
+var overlay = document.createElement('div');
+overlay.className = 'defeat-overlay-full';
+overlay.innerHTML = '<div class="defeat-text-big">DEFEAT</div>';
+document.body.appendChild(overlay);
+setTimeout(function() { overlay.remove(); }, 3000);
+},
+
+// ===== TURN TRANSITION WIPE (Section R) =====
+showTurnTransition() {
+var wipe = document.createElement('div');
+wipe.className = 'turn-transition-wipe';
+document.body.appendChild(wipe);
+setTimeout(function() { wipe.remove(); }, 700);
+},
+
+_showAIThinking() {
+this._removeAIThinking();
+var indicator = document.createElement('div');
+indicator.className = 'ai-thinking-indicator';
+indicator.id = 'ai-thinking-indicator';
+indicator.textContent = '🤖 Opponent thinking...';
+var arena = document.getElementById('battle-arena');
+if (arena) arena.appendChild(indicator);
+},
+
+_removeAIThinking() {
+var el = document.getElementById('ai-thinking-indicator');
+if (el) el.remove();
+},
+
+// ===== COMBO FLASH (enhanced from pass 1) =====
+comboFlashEnhanced(text, color, type) {
+var overlay = document.getElementById('combo-flash-overlay');
+if (!overlay) return;
+overlay.textContent = text;
+overlay.style.borderColor = color || '#ffd700';
+overlay.style.color = color || '#ffd700';
+overlay.style.boxShadow = '0 0 60px ' + (color || '#ffd700') + ', 0 0 120px ' + (color || '#ffd700') + '44';
+overlay.classList.add('active');
+setTimeout(function() { overlay.classList.remove('active'); }, 1200);
+// Screen shake for big combos
+if (type === 'legendary' || type === 'mythic') {
+  this.screenShake(0.5);
+}
+// Play combo sound
+try { audio.play('combo'); } catch(e) {}
+},
+
+// ===== DECK ARCHETYPE DETECTOR (Section P) =====
+detectArchetype(deck) {
+if (!deck || deck.length === 0) return 'Unknown';
+var avgCost = deck.reduce(function(s, c) { return s + (c.cost || c.power || 0); }, 0) / deck.length;
+var creatureCount = deck.filter(function(c) { return c.type === 'Creature'; }).length;
+var spellCount = deck.filter(function(c) { return c.type === 'Spell' || c.type === 'Action'; }).length;
+var structureCount = deck.filter(function(c) { return c.type === 'Structure'; }).length;
+var lowCostCount = deck.filter(function(c) { return (c.cost || c.power || 0) <= 2; }).length;
+var highCostCount = deck.filter(function(c) { return (c.cost || c.power || 0) >= 6; }).length;
+
+if (avgCost <= 2.5 && lowCostCount > 15) return 'Aggro';
+if (spellCount > 8 && structureCount < 2) return 'Control';
+if (creatureCount > 22 && avgCost > 3.5) return 'Midrange';
+if (deck.filter(function(c) { return c.comboId; }).length > 10) return 'Combo';
+if (highCostCount > 6 && structureCount > 3) return 'Ramp';
+return 'Balanced';
+},
+
+// ===== QUICK ADD TO DECK (Section P) =====
+quickAddCard(cardId) {
+var card = ALL_CARDS.find(function(c) { return c.id === cardId; });
+if (!card) return;
+if (this.deck.length >= 40) { audio.play('error'); return; }
+if (typeof isCardLegalForCharacter === 'function' && !isCardLegalForCharacter(card, this.selectedCharacter)) { audio.play('error'); return; }
+var count = this.deck.filter(function(c) { return c.id === cardId; }).length;
+var limit = COPY_LIMITS[card.rarity];
+if (count >= limit) { audio.play('error'); return; }
+// Add to history for undo
+this.deckHistory.push([...this.deck]);
+this.deck.push(card);
+this.renderDeck();
+this.renderCardCollection();
+audio.play('play');
+},
+
+showScreen(screen) {
+// Hide result overlay if showing
+this.hideResult();
+
+document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+const target = document.getElementById(screen + '-screen');
+if (target) target.classList.add('active');
+this.currentScreen = screen;
+
+if (screen === 'character-select') {
+this.renderCharacterSelect();
+}
+if (screen === 'deckbuilder') {
+this.renderDeck();
+this.renderCardCollection();
+this.renderPresetDecks();
+this.renderSavedDecks();
+this.renderCharacterBadge();
+}
+if (screen === 'friends') {
+this.renderFriends();
+this.renderChat();
+}
+if (screen === 'battleground-select') {
+this.renderBattlegrounds();
+this.renderBgDeckList();
+}
+if (screen === 'achievements') {
+this.renderAchievements();
+}
+if (screen === 'leaderboard') {
+this.renderLeaderboard();
+}
+if (screen === 'quests') {
+this.renderQuests();
+}
+},
+
+// ===== CARD RENDERING =====
+renderCard(card, small = false, inBattle = false, showBattleStats = false) {
+const rarity = card.rarity || 'common';
+const team = card.team || 'Neutral';
+const teamSlug = team.toLowerCase().replace(/[' ]/g, '-');
+const typeSlug = (card.type || '').toLowerCase();
+const isFrozen = card.frozenTurns && card.frozenTurns > 0;
+const cardClass = [
+  'card', `card-${typeSlug}`, rarity, `team-${teamSlug}`,
+  small ? 'in-hand' : '',
+  inBattle ? 'in-battle' : '',
+  isFrozen ? 'card-frozen' : ''
+].filter(Boolean).join(' ');
+const onclick = inBattle ? `onclick="ui.playBattleCard('${card.instanceId || card.id}')"` : `onclick="ui.handleCardClick(this)"`;
+const ability = card.ability || '';
+const hasAbility = ability.length > 0;
+const teamColor = TEAM_COLORS[team] || '#888';
+const cardCost = card.cost !== undefined ? card.cost : (card.power || 0);
+
+// Keyword tags
+const KWORDS = ['Surge','Invoke','Resonance','Detonate','Recall','Forge','Synth',
+  'Overload','Nexus','Echo','Harvest','Nullify','Phase','Conduit','Ascend',
+  'Taunt','Charge','Cover','Ephemeral','Regeneration','Quake','Drain','Mute',
+  'Scout','Foresight','Gravedig','Levy',
+  // Character-locked keywords
+  'Precision','Replicate','Infect','Transmute','Refine','Sacrament','Devotion',
+  'Overclock','Adrenaline','Bloom','Symbiosis','Drift','Manifest',
+  'Deploy','Network','Snare','Gambit'];
+let abilityHtml = ability;
+if (typeof KEYWORD_DESCRIPTIONS !== 'undefined') {
+  KWORDS.forEach(kw => {
+    const desc = KEYWORD_DESCRIPTIONS[kw] || '';
+    abilityHtml = abilityHtml.replace(
+      new RegExp(`\\b(${kw})(?=:?\\b)`, 'g'),
+      `<span class="keyword-tag" data-desc="${desc}">${kw}</span>`
+    );
+  });
+} else {
+  KWORDS.forEach(kw => {
+    abilityHtml = abilityHtml.replace(
+      new RegExp(`\\b(${kw})(?=:?\\b)`, 'g'),
+      `<strong>${kw}</strong>`
+    );
+  });
+}
+
+// Battle stats
+const curAtk = card.currentAtk !== undefined ? card.currentAtk : (card.attack || 0);
+const curDef = card.currentDef !== undefined ? card.currentDef : (card.defense || 0);
+const curHp  = card.currentHp  !== undefined ? card.currentHp  : (card.health || 0);
+const atkClass = curAtk > (card.attack||0) ? 'stat-buffed' : (curAtk < (card.attack||0) ? 'stat-debuffed' : '');
+const defClass = curDef > (card.defense||0) ? 'stat-buffed' : (curDef < (card.defense||0) ? 'stat-debuffed' : '');
+const hpClass  = curHp  < (card.health || 1) ? 'stat-debuffed' : '';
+
+// HP bar
+let hpBarHtml = '';
+if (showBattleStats && card.health > 0) {
+  const hpPct = Math.max(0, Math.min(100, (curHp / card.health) * 100));
+  const hpBarClass = hpPct > 60 ? 'hp-high' : hpPct > 30 ? 'hp-medium' : 'hp-low';
+  hpBarHtml = `<div class="card-hp-bar-wrap"><div class="card-hp-bar-fill ${hpBarClass}" style="width:${hpPct}%"></div></div>`;
+}
+
+// Rarity stars (0-5): common=0 ☆☆☆☆☆, uncommon=1 ★☆☆☆☆ ... mythic=5 ★★★★★
+const rarityStarCount = { common:0, uncommon:1, rare:2, epic:3, legendary:4, mythic:5 };
+const starCount = rarityStarCount[rarity] || 0;
+const starHtml = '★'.repeat(starCount) + '☆'.repeat(5 - starCount);
+
+// Portrait
+const portraitClass = `card-portrait team-${teamSlug}`;
+const iconSize = small ? '1.8rem' : '2.4rem';
+
+// ATK/DEF badge values
+const atkDisplay = showBattleStats ? `<span class="${atkClass}">${curAtk}</span>` : (card.attack || 0);
+const defDisplay = showBattleStats ? `<span class="${defClass}">${curDef}</span>` : (card.defense || 0);
+const hpDisplay  = showBattleStats && card.health > 0 ? `<span class="${hpClass}">${curHp}/${card.health}</span>` : (card.health || 0);
+
+// Only show ATK/DEF badges for creatures and structure types that have attack/defense values
+const showAtkDef = card.attack > 0 || card.defense > 0;
+
+return `
+<div class="${cardClass}" data-id="${card.id}" data-rarity="${rarity}" data-instance="${card.instanceId || card.id}" ${onclick}
+onmouseenter="ui.showTooltip(this, '${card.id}')" onmouseleave="ui.hideTooltip()">
+<div class="card-frame"></div>
+<div class="card-shimmer"></div>
+<div class="card-holo"></div>
+<div class="card-team-bg"></div>
+<div class="card-texture-overlay"></div>
+${card.character && inBattle ? `<div class="card-char-badge" style="--char-color:${CHARACTERS[card.character]?.color || '#888'}" title="${card.character} signature">${CHARACTERS[card.character]?.icon || '✦'}</div>` : ''}
+<div class="card-header" style="background: linear-gradient(135deg, rgba(0,0,0,0.8), ${teamColor}33); border-bottom: 1px solid ${teamColor}44;${card.character && inBattle && CHARACTERS[card.character] ? `border-left: 3px solid ${CHARACTERS[card.character].color};` : ''}">
+  <div class="card-mana-cost" title="Mana cost">${cardCost}</div>
+  <div class="card-header-center">
+    <div class="card-name">${card.name}</div>
+    ${team !== 'Neutral' ? `<div class="card-team-tiny" style="color:${teamColor};">${team}</div>` : ''}
+  </div>
+</div>
+<div class="${portraitClass}" style="min-height:${small?'52px':'78px'};position:relative;display:flex;align-items:center;justify-content:center;${card.character && CHARACTERS[card.character] ? 'background:radial-gradient(circle at center, '+CHARACTERS[card.character].color+'22 0%, transparent 70%);' : ''}">
+  <div class="card-art-bg"></div>
+  ${card.character && CHARACTERS[card.character] ? '<div class="card-char-portrait-overlay" style="position:absolute;top:4px;left:4px;font-size:0.7rem;opacity:0.5;">'+CHARACTERS[card.character].icon+'</div>' : ''}
+  <div class="card-art-icon" style="font-size:${iconSize};filter:drop-shadow(0 0 6px ${teamColor}88);">${card.icon || '✦'}</div>
+  ${card.character && !inBattle && CHARACTERS[card.character] ? '<div class="card-char-name-tag" style="position:absolute;bottom:2px;right:4px;font-size:0.4rem;color:'+CHARACTERS[card.character].color+';opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;">'+card.character+'</div>' : ''}
+</div>
+<div class="card-stars" title="Rarity: ${rarity}">${starHtml}</div>
+<div class="card-type-bar">
+  <span class="card-type-badge badge-${typeSlug}">${card.type}</span>
+</div>
+<div class="card-ability ${hasAbility ? '' : 'card-ability-empty'}">
+  ${hasAbility ? abilityHtml : '<em style="opacity:0.4">—</em>'}
+</div>
+${hpBarHtml}
+${showBattleStats && card.type === 'Creature' ? `<div class="card-battle-stats">
+  <span class="card-battle-stat-chip chip-hp" title="HP"><span class="${hpClass}">${curHp}</span>❤</span>
+</div>` : ''}
+${showAtkDef ? `<div class="card-atk-badge" title="Attack: ${curAtk}">${atkDisplay}<span class="badge-icon">⚔</span></div>` : ''}
+${showAtkDef ? `<div class="card-def-badge" title="Defense: ${curDef}">${defDisplay}<span class="badge-icon">🛡</span></div>` : ''}
+</div>
+`;
+},
+
+renderCardCollection() {
+const container = document.getElementById('card-collection');
+const teamFilter = document.getElementById('filter-team')?.value || '';
+const typeFilter = document.getElementById('filter-type')?.value || '';
+const rarityFilter = document.getElementById('filter-rarity')?.value || '';
+const costFilter = parseInt(document.getElementById('filter-cost')?.value || 12);
+const searchText = (document.getElementById('card-search-input')?.value || '').toLowerCase();
+
+let filtered = ALL_CARDS;
+// Character lock: cards belonging to a different Character than the one chosen are hidden
+// entirely, not merely disabled (docs/CARDS.md §6.4) — a player should never wonder why a
+// visible card can't be added.
+if (typeof isCardLegalForCharacter === 'function') {
+  filtered = filtered.filter(c => isCardLegalForCharacter(c, this.selectedCharacter));
+}
+if (teamFilter) filtered = filtered.filter(c => c.team === teamFilter);
+if (typeFilter) filtered = filtered.filter(c => c.type === typeFilter);
+if (rarityFilter) filtered = filtered.filter(c => c.rarity === rarityFilter);
+filtered = filtered.filter(c => c.power <= costFilter);
+if (searchText) filtered = filtered.filter(c => 
+  c.name.toLowerCase().includes(searchText) || 
+  (c.ability || '').toLowerCase().includes(searchText) ||
+  (c.desc || '').toLowerCase().includes(searchText) ||
+  (c.team || 'neutral').toLowerCase().includes(searchText)
+);
+
+document.getElementById('filter-results').textContent = `Showing ${filtered.length} cards`;
+container.innerHTML = filtered.map((c, i) => {
+  const cardHtml = this.renderCard(c);
+  // Add staggered animation delay
+  const count = this.deck.filter(d => d.id === c.id).length;
+  const badge = count > 0 ? `<div class="card-in-deck-badge">${count}</div>` : '';
+  return cardHtml.replace('<div class="card', `<div style="animation: cardFadeIn 0.3s ease-out ${i * 0.02}s backwards;" `) + badge;
+}).join('');
+},
+
+
+      
+      filterCards() {
+        var val = document.getElementById('filter-cost').value;
+        document.getElementById('filter-cost-value').textContent = val;
+        this.renderCardCollection();
+      },
+
+      // ===== TOAST NOTIFICATION SYSTEM =====
+      toast(message, type, duration) {
+        type = type || 'info';
+        duration = duration || 2500;
+        var container = document.getElementById('toast-container');
+        if (!container) {
+          container = document.createElement('div');
+          container.id = 'toast-container';
+          container.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;';
+          document.body.appendChild(container);
+        }
+        var toast = document.createElement('div');
+        var bg = type === 'error' ? 'var(--accent-red)' : type === 'success' ? 'var(--accent-green)' : type === 'warning' ? 'var(--accent-gold)' : 'rgba(0,217,255,0.9)';
+        var icon = type === 'error' ? '✕' : type === 'success' ? '✓' : type === 'warning' ? '⚠' : 'ℹ';
+        toast.style.cssText = 'background:' + bg + ';color:#000;padding:8px 20px;border-radius:8px;font-size:0.85rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.4);animation:toastIn 0.25s ease-out;pointer-events:auto;display:flex;align-items:center;gap:8px;';
+        toast.innerHTML = '<span style="font-size:1rem;">' + icon + '</span> ' + message;
+        container.appendChild(toast);
+        setTimeout(function() {
+          toast.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(20px)';
+          setTimeout(function() { if (toast.parentNode) toast.remove(); }, 350);
+        }, duration);
+      },
+
+      // ===== CONFIRM MODAL (replaces browser confirm) =====
+      // Built with DOM APIs rather than an innerHTML string carrying inline onclick handlers —
+      // the latter requires nesting quotes across an HTML attribute AND a JS callback re-embedded
+      // as source text, which is fragile by construction and was previously broken (mismatched
+      // escaping produced a syntax error that broke the entire inline script).
+      confirmModal(message, callback) {
+        var overlay = document.createElement('div');
+        overlay.className = 'confirm-modal-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;';
+
+        var box = document.createElement('div');
+        box.style.cssText = 'background:var(--bg-panel,#0a0f1e);border:1px solid var(--border-subtle,#1e2a3a);border-radius:12px;padding:24px 32px;max-width:400px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
+
+        var p = document.createElement('p');
+        p.style.cssText = 'color:var(--text-primary);margin:0 0 20px;font-size:0.95rem;line-height:1.4;';
+        p.textContent = message;
+
+        var btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex;gap:10px;justify-content:center;';
+
+        var cancelBtn = document.createElement('button');
+        cancelBtn.className = 'menu-button';
+        cancelBtn.style.cssText = 'padding:8px 24px;font-size:0.85rem;';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.addEventListener('click', function() { overlay.remove(); });
+
+        var confirmBtn = document.createElement('button');
+        confirmBtn.className = 'menu-button primary-btn';
+        confirmBtn.style.cssText = 'padding:8px 24px;font-size:0.85rem;';
+        confirmBtn.textContent = 'Confirm';
+        confirmBtn.addEventListener('click', function() { overlay.remove(); callback(); });
+
+        btnRow.appendChild(cancelBtn);
+        btnRow.appendChild(confirmBtn);
+        box.appendChild(p);
+        box.appendChild(btnRow);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+      },
+// ===== CHARACTER SELECT (docs/CARDS.md) =====
+      renderCharacterSelect() {
+        var container = document.getElementById('character-select-grid');
+        if (!container || typeof CHARACTERS === 'undefined') return;
+        var self = this;
+        var h = '';
+        CHARACTER_LIST.forEach(function(id) {
+          var ch = CHARACTERS[id];
+          var axesRow = ['cost','stats','engine','choice','tempo'].map(function(axis) {
+            var v = ch.axes[axis];
+            return '<span class="char-axis" title="' + axis + ': ' + v + '/5">'
+              + '<span class="char-axis-label">' + axis.slice(0,1).toUpperCase() + '</span>'
+              + '<span class="char-axis-dots">' + '●'.repeat(v) + '○'.repeat(5-v) + '</span></span>';
+          }).join('');
+          var selected = self.selectedCharacter === id ? ' selected' : '';
+          h += '<div class="character-card' + selected + '" style="--char-color:' + ch.color + ';" onclick="ui.selectCharacter(\'' + id + '\')">'
+            + '<div class="character-card-icon">' + ch.icon + '</div>'
+            + '<div class="character-card-name">' + ch.name + '</div>'
+            + '<div class="character-card-tagline">"' + ch.tagline + '"</div>'
+            + '<div class="character-card-axes">' + axesRow + '</div>'
+            + '<div class="character-card-tribe">Suggested tribe: ' + ch.tribe + '</div>'
+            + '</div>';
+        });
+        container.innerHTML = h;
+      },
+
+      selectCharacter(id) {
+        this.selectCharacterSilently(id);
+        audio.play('click');
+        this.showScreen('deckbuilder');
+      },
+
+      selectCharacterSilently(id) {
+        if (typeof CHARACTERS === 'undefined' || !CHARACTERS[id]) return;
+        this.selectedCharacter = id;
+        this.deck = getStarterDeck(id, ALL_CARDS);
+        this.savedDeckName = id + ' Starter';
+        this.selectedDeckName = null;
+      },
+
+      getEnemyCharacter() {
+        if (typeof CHARACTER_LIST === 'undefined') return null;
+        return CHARACTER_LIST[Math.floor(Math.random() * CHARACTER_LIST.length)];
+      },
+
+      renderCharacterBadge() {
+        var badge = document.getElementById('db-character-badge');
+        if (!badge) return;
+        if (!this.selectedCharacter || typeof CHARACTERS === 'undefined') { badge.innerHTML = ''; return; }
+        var ch = CHARACTERS[this.selectedCharacter];
+        badge.innerHTML = '<span class="character-badge" style="--char-color:' + ch.color + ';">' + ch.icon + ' ' + ch.name + '</span>';
+      },
+
+// ===== DECK BUILDER METHODS (restored) =====
+      handleCardClick(element) {
+        var cardId = element.dataset.id;
+        var card = ALL_CARDS.find(function(c){return c.id===cardId});
+        if (!card) return;
+        if (this.deck.length >= 40) { audio.play('error'); return; }
+        if (typeof isCardLegalForCharacter === 'function' && !isCardLegalForCharacter(card, this.selectedCharacter)) { audio.play('error'); return; }
+        var count = this.deck.filter(function(c){return c.id===cardId}).length;
+        var limit = COPY_LIMITS[card.rarity];
+        if (count >= limit) { audio.play('error'); return; }
+        this.deck.push(card);
+        this.renderDeck();
+        this.renderCardCollection();
+        audio.play('play');
+      },
+
+      renderDeck() {
+        var listContainer = document.getElementById('deck-card-list');
+        var cardCounts = {};
+        this.deck.forEach(function(c){ if(!cardCounts[c.id]) cardCounts[c.id]={card:c,count:0}; cardCounts[c.id].count++; });
+        var entries = Object.values(cardCounts);
+        if (entries.length === 0) {
+          listContainer.innerHTML = '<div class="empty-hint">No cards added yet</div>';
+        } else {
+          entries.sort(function(a,b){ var o={Creature:1,Spell:2,Trap:3,Structure:4,Role:5}; return (o[a.card.type]||9)-(o[b.card.type]||9) || a.card.name.localeCompare(b.card.name); });
+          var h = '';
+          entries.forEach(function(e){ var lim=COPY_LIMITS[e.card.rarity]||4; h+='<div class="deck-card-row" onclick="ui.handleDeckCardClick('+JSON.stringify(e.card.id)+')"><span class="deck-card-type-icon">'+(e.card.icon||'✦')+'</span><span class="deck-card-row-name">'+e.card.name+'</span><span class="deck-card-row-count" style="color:'+(e.count>=lim?'var(--accent-gold)':'var(--accent-cyan)')+';">'+e.count+'x</span></div>'; });
+          listContainer.innerHTML = h;
+        }
+        var el=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v;};
+        el('right-deck-count',this.deck.length); el('right-creature-count',this.deck.filter(function(c){return c.type==='Creature'}).length);
+        el('right-spell-count',this.deck.filter(function(c){return c.type==='Spell'||c.type==='Role'}).length);
+        el('right-trap-count',this.deck.filter(function(c){return c.type==='Trap'}).length);
+        el('right-structure-count',this.deck.filter(function(c){return c.type==='Structure'}).length);
+        var ap=this.deck.length>0?(this.deck.reduce(function(s,c){return s+c.power},0)/this.deck.length).toFixed(1):'0'; el('right-avg-power',ap);
+        el('deck-count',this.deck.length); el('creature-count',this.deck.filter(function(c){return c.type==='Creature'}).length);
+        el('spell-count',this.deck.filter(function(c){return c.type==='Spell'}).length);
+        this.renderManaCurve();
+      },
+
+      renderManaCurve() {
+        var container = document.getElementById('mana-curve-bars');
+        if (!container) return;
+        var costs = [0,1,2,3,4,5,6,7,8];
+        var counts = costs.map(function(c) {
+          return this.deck.filter(function(card) {
+            var cost = card.cost !== undefined ? card.cost : (card.power || 0);
+            if (c === 8) return cost >= 8;
+            return cost === c;
+          }).length;
+        }, this);
+        var max = Math.max.apply(null, counts);
+        var h = '';
+        for (var i = 0; i < costs.length; i++) {
+          var pct = max > 0 ? (counts[i] / max * 100) : 0;
+          var h2 = counts[i] > 0 ? '' : '0.3';
+          h += '<div class="mana-bar-col"><div class="mana-bar-fill" style="height:'+pct+'%;opacity:'+h2+';"></div><span class="mana-bar-label">'+(i===8?'8+':costs[i])+'</span><span class="mana-bar-count">'+counts[i]+'</span></div>';
+        }
+        container.innerHTML = h;
+      },
+
+      handleDeckCardClick(cardId) {
+        var idx=this.deck.findIndex(function(c){return c.id===cardId});
+        if(idx>=0){this.deck.splice(idx,1);this.renderDeck();this.renderCardCollection();audio.play('click');}
+      },
+
+      updateDeckName(name) { document.getElementById('deck-name-input').value = name; },
+      editDeckName() { var i=document.getElementById('deck-name-input'); i.focus(); i.select(); },
+
+      clearDeck() { this.deck=[]; this.renderDeck(); this.renderCardCollection(); audio.play('click'); },
+
+      saveDeck() {
+        if (this.deck.length===0) { this.toast('No cards in deck to save!', 'warning'); return; }
+        var name = prompt('Deck name:', this.savedDeckName||'');
+        if (!name) return;
+        this.savedDecks[name] = this.deck.map(function(c){return c.id});
+        this.savedDeckName = name;
+        localStorage.setItem('synthopwars_saved_decks', JSON.stringify(this.savedDecks));
+        this.renderSavedDecks();
+        audio.play('click');
+        this.toast('Deck "'+name+'" saved! ('+this.deck.length+' cards)', 'success');
+      },
+
+      loadSavedDeck(name) {
+        var ids = this.savedDecks[name]; if (!ids) return;
+        this.deck = ids.map(function(id){return ALL_CARDS.find(function(c){return c.id===id})}).filter(Boolean);
+        this.savedDeckName = name; this.renderDeck(); this.renderCardCollection(); audio.play('click');
+      },
+
+      deleteSavedDeck(name) {
+        if (!confirm('Delete deck "'+name+'"?')) return;
+        delete this.savedDecks[name];
+        localStorage.setItem('synthopwars_saved_decks', JSON.stringify(this.savedDecks));
+        this.renderSavedDecks(); audio.play('click');
+      },
+
+      PRESET_ARCHETYPES: {
+        '⚡ Overcharge (Aggro)': ['ag_002','ag_002','oc_001','oc_001','oc_001','oc_001','oc_002','oc_002','oc_002','oc_003','oc_003','oc_005','oc_007','oc_007','oc_008','oc_009','oc_009','ag_001','ag_001','ag_001','ag_001','ag_003','ag_003','ag_003','ag_004','ag_004','oc_004','oc_004','oc_010','oc_010','oc_006','fr_001','fr_001','fr_002','ct_001','ct_001','sy_001','ch_001','ec_001','oc_001'],
+        '🛡️ Fortress (Tank)': ['fr_001','fr_001','fr_002','fr_002','fr_002','fr_003','fr_003','fr_004','fr_005','fr_011','fr_011','fr_007','fr_007','fr_007','fr_008','fr_008','fr_009','fr_009','fr_010','fr_006','fr_006','fr_006','fr_012','fr_012','fr_012','tb_001','tb_001','tb_002','tb_004','oc_001','oc_001','ct_001','ct_001','sy_001','sy_001','ec_001','ec_001','ec_002','ec_002','ch_001'],
+        '🔮 Control (Denial)': ['ct_001','ct_001','ct_001','ct_002','ct_002','ct_003','ct_003','ct_004','ct_005','ct_005','ct_005','ct_006','ct_006','ct_007','ct_007','ct_008','ct_008','ct_009','ct_009','ct_010','ct_011','ct_011','ct_012','ct_012','sc_001','sc_001','sc_001','sc_002','sc_002','sc_003','sc_004','sc_005','sc_006','sc_006','fr_001','fr_001','ec_001','ec_001','oc_001','sy_001','ch_001'],
+        '🔗 Synergy (Combo)': ['sy_001','sy_001','sy_001','sy_002','sy_002','sy_003','sy_003','sy_004','sy_005','sy_005','sy_005','sy_006','sy_006','sy_007','sy_007','sy_008','sy_008','sy_009','sy_010','sy_010','sy_011','sy_011','sy_012','oc_001','oc_001','fr_001','fr_002','ct_001','ct_001','ec_001','ec_001','ec_002','ch_001','ch_001','sl_001','sl_001','sl_004','sy_001','sy_002','sy_003','sy_005','sy_006'],
+        '👑 Economy (Late)': ['ec_001','ec_001','ec_001','ec_001','ec_002','ec_002','ec_002','ec_003','ec_003','ec_004','ec_004','ec_005','ec_005','ec_006','ec_006','ec_007','ec_008','ec_008','ec_008','ec_009','ec_009','ec_010','ec_010','ec_011','ec_011','ec_012','sc_007','sc_007','sc_007','fr_001','fr_001','fr_002','fr_002','ct_001','ct_001','oc_001','oc_001','sy_001','sy_001','ch_001','my_003'],
+        '🎲 Chaos (RNG)': ['ch_001','ch_001','ch_001','ch_002','ch_002','ch_003','ch_003','ch_004','ch_005','ch_005','ch_005','ch_006','ch_006','ch_007','ch_007','ch_008','ch_008','ch_009','ch_010','ch_011','ch_011','ch_012','sc_008','sc_008','sc_008','oc_001','oc_001','fr_001','fr_001','ct_001','ct_001','sy_001','sy_001','ec_001','ec_001','ec_002','ch_001','ch_002','ch_003','ch_005','my_002'],
+        '⚖️ Balanced': ['oc_001','oc_001','oc_002','oc_003','ag_002','ag_002','ag_004','fr_001','fr_001','fr_002','fr_003','fr_007','fr_012','ct_001','ct_001','ct_002','ct_005','ct_012','sc_001','sc_002','sy_001','sy_001','sy_002','sy_005','sy_011','ec_001','ec_001','ec_002','ec_003','ec_006','sc_007','ch_001','ch_001','ch_002','ch_005','ch_011','sl_001','tb_001','my_001','oc_004','fr_004','ct_003'],
+      },
+
+      renderPresetDecks() {
+        var container = document.getElementById('preset-decks-list');
+        var h = '';
+        for (var name in this.PRESET_ARCHETYPES) {
+          var ids = this.PRESET_ARCHETYPES[name];
+          h += '<div class="preset-deck-item" onclick="ui.loadPresetByArchetype('+JSON.stringify(name)+')" title="'+ids.length+' cards"><span class="preset-deck-icon">'+name.slice(0,2)+'</span><span class="preset-deck-name">'+name.slice(2)+'</span><span class="preset-deck-count">'+ids.length+'</span></div>';
+        }
+        container.innerHTML = h;
+      },
+
+      loadPresetByArchetype(name) {
+        var ids = this.PRESET_ARCHETYPES[name]; if (!ids) return;
+        this.deck = ids.map(function(id){return ALL_CARDS.find(function(c){return c.id===id})}).filter(Boolean);
+        this.savedDeckName = name; this.renderDeck(); this.renderCardCollection(); audio.play('click');
+      },
+
+      renderSavedDecks() {
+        var container = document.getElementById('saved-decks-list');
+        var names = Object.keys(this.savedDecks);
+        if (names.length===0) { container.innerHTML='<div class="empty-hint">No saved decks yet</div>'; return; }
+        var h = '';
+        names.forEach(function(name){
+          var ids = ui.savedDecks[name], count = ids.length, inc = count < 40;
+          h += '<div class="saved-deck-item '+(inc?'deck-incomplete':'deck-complete')+'" style="'+(inc?'border-color:#e67e22;background:rgba(230,126,34,0.15);':'')+'"><div style="flex:1;cursor:pointer;" onclick="ui.loadSavedDeck('+JSON.stringify(name)+')"><div class="saved-deck-name">'+name+'</div><div class="saved-deck-info" style="color:'+(inc?'#e67e22':'var(--text-secondary)')+';">'+count+'/40 cards'+(inc?' ⚠️ Incomplete':' ✓')+'</div></div><button class="saved-deck-delete" onclick="event.stopPropagation();ui.deleteSavedDeck('+JSON.stringify(name)+')">🗑️</button></div>';
+        });
+        container.innerHTML = h;
+      },
+
+      loadPresetDeck() {
+        var names = Object.keys(this.PRESET_ARCHETYPES);
+        var choice = prompt('Select: 1=Overcharge 2=Fortress 3=Control 4=Synergy 5=Economy 6=Chaos 7=Balanced','7');
+        var idx = parseInt(choice)-1;
+        if (idx>=0 && idx<names.length) this.loadPresetByArchetype(names[idx]);
+        else this.loadPresetByArchetype(names[6]);
+      },
+
+      exportDeck() { prompt('Copy deck code:', btoa(JSON.stringify(this.deck.map(function(c){return c.id})))); },
+
+      importDeck() {
+        var code = prompt('Enter deck code:'); if (!code) return;
+        try { var ids=JSON.parse(atob(code)); this.deck=ids.map(function(id){return ALL_CARDS.find(function(c){return c.id===id})}).filter(Boolean); this.renderDeck(); this.renderCardCollection(); audio.play('click'); }
+        catch(e) { this.toast('Invalid deck code!', 'error'); }
+      },
+
+      // ===== BATTLEGROUND SYSTEM =====
+      gameMode: 'bot',
+      applyBGRules: true,
+      selectedOpponent: 'random',
+      arcadeRound: 1,
+      arcadeBest: 0,
+
+      BATTLEGROUNDS: [
+        {id:'dalian',name:'Dalian Block',theme:'Cyber-rain',color:'#00d9ff',icon:'🌧️',biome:'cyber',
+         effect:'Traps are hidden. Spells cost +1 Power.',
+         lore:'Cyber-rain drenched streets where information is currency. Traps lurk in every shadow.',
+         difficulty:'Hard'},
+        {id:'mashhad',name:'Mashhad Megacity',theme:'Desert Storm',color:'#ff6b35',icon:'🏜️',biome:'desert',
+         effect:'Creatures with Speed < 3 cannot attack on their first turn.',
+         lore:'Desert storm wasteland where only the fast survive. Hesitation means death.',
+         difficulty:'Medium'},
+        {id:'london',name:'London Reality',theme:'Fog of War',color:'#8888a0',icon:'🌫️',biome:'fog',
+         effect:'Only Battle Row visible. Base Row hidden until attacked.',
+         lore:'Fog-shrouded metropolis where visibility is a luxury.',
+         difficulty:'Hard'},
+        {id:'beijing',name:'Star Beijing',theme:'Neon Overload',color:'#ff2a6d',icon:'🌃',biome:'neon',
+         effect:'All spells cost -1 Power. Creatures lose 1 HP per turn.',
+         lore:'Neon overload where technology burns bright. Energy courses through every street.',
+         difficulty:'Medium'},
+        {id:'lahore',name:'Lahore Republic',theme:'Golden Hour',color:'#ffd700',icon:'🌅',biome:'golden',
+         effect:'All healing doubled. Structures regenerate 1 HP per turn.',
+         lore:'Golden hour sanctuary where healing and restoration thrive.',
+         difficulty:'Easy'},
+        {id:'odessa',name:'Future Odessa',theme:'Gravity Wells',color:'#bc13fe',icon:'🌀',biome:'gravity',
+         effect:'Max hand size 7. Excess draws discarded. Creatures have -1 Speed.',
+         lore:'Gravity-warped zone where reality bends. Nothing behaves as expected.',
+         difficulty:'Hard'},
+        {id:'arcade',name:'The Gauntlet',theme:'Endless Trial',color:'#ffd700',icon:'🔥',biome:'fire',
+         effect:'No special rules. Pure skill against escalating opponents.',
+         lore:'The ultimate test. How far can you go against an endless tide?',
+         difficulty:'Extreme'}
+      ],
+
+      // Biome gradient generators
+      BIOME_GRADIENTS: {
+        cyber: 'linear-gradient(180deg, #001122 0%, #002244 30%, #003366 60%, #001a33 100%)',
+        desert: 'linear-gradient(180deg, #1a0a00 0%, #331a00 30%, #664400 60%, #331100 100%)',
+        fog: 'linear-gradient(180deg, #111122 0%, #222233 30%, #334455 60%, #1a1a2e 100%)',
+        neon: 'linear-gradient(180deg, #0a0011 0%, #1a0033 30%, #330066 60%, #0a0022 100%)',
+        golden: 'linear-gradient(180deg, #1a1500 0%, #332a00 30%, #665500 60%, #1a1100 100%)',
+        gravity: 'linear-gradient(180deg, #0a0022 0%, #150033 30%, #220066 60%, #0a0033 100%)',
+        fire: 'linear-gradient(180deg, #1a0000 0%, #330000 30%, #661100 60%, #1a0000 100%)'
+      },
+
+      renderBattlegrounds() {
+        var container = document.getElementById('battleground-grid');
+        var self = this;
+        var bgs = this.BATTLEGROUNDS.filter(function(bg){
+          return bg.id !== 'arcade' || self.gameMode === 'arcade';
+        });
+        container.innerHTML = bgs.map(function(bg){
+          var sel = self.selectedBattleground && self.selectedBattleground.id === bg.id;
+          var gradient = self.BIOME_GRADIENTS[bg.biome] || self.BIOME_GRADIENTS.cyber;
+          return '<div class="bg-card'+(sel?' selected':'')+'" style="--bg-color:'+bg.color+'" onclick="ui.selectBattleground(\''+bg.id+'\')">'+
+            '<div class="bg-card-biome" style="background:'+gradient+';"></div>'+
+            '<div class="bg-card-overlay"></div>'+
+            '<div class="bg-card-glow" style="background:radial-gradient(circle at 50% 0%, '+bg.color+'33, transparent 70%);"></div>'+
+            '<div class="bg-card-content">'+
+              '<div class="bg-card-icon">'+bg.icon+'</div>'+
+              '<h3 class="bg-card-name">'+bg.name+'</h3>'+
+              '<div class="bg-card-theme" style="color:'+bg.color+'">'+bg.theme+'</div>'+
+              '<div class="bg-card-effect">'+bg.effect+'</div>'+
+              '<div class="bg-card-stats">'+
+                '<span style="color:'+bg.color+'">Difficulty: '+bg.difficulty+'</span>'+
+              '</div>'+
+            '</div>'+
+            (sel ? '<div class="bg-card-check">✓</div>' : '')+
+          '</div>';
+        }).join('');
+        this.updateBGMatchPanel();
+      },
+
+      selectBattleground(id) {
+        var self = this;
+        var bg = this.BATTLEGROUNDS.find(function(b){return b.id===id});
+        if (!bg) return;
+        if (this.selectedBattleground && this.selectedBattleground.id === id) {
+          this.selectedBattleground = null;
+        } else {
+          this.selectedBattleground = {
+            id:bg.id, name:bg.name, theme:bg.theme, color:bg.color,
+            icon:bg.icon, effect:bg.effect, lore:bg.lore, difficulty:bg.difficulty, biome:bg.biome
+          };
+        }
+        this.renderBattlegrounds();
+        audio.play('click');
+      },
+
+      toggleBattlegroundRules() {
+        this.applyBGRules = document.getElementById('bg-rules-toggle').checked;
+        this.updateBGMatchPanel();
+      },
+
+      updateBGMatchPanel() {
+        var info = document.getElementById('bg-selected-info');
+        var btn = document.getElementById('bg-launch-btn');
+        document.getElementById('bg-deck-count-top').textContent = this.deck.length;
+        document.getElementById('bg-wins-count').textContent = this.playerWins || 0;
+
+        if (this.selectedBattleground) {
+          var bg = this.selectedBattleground;
+          var grad = this.BIOME_GRADIENTS[bg.biome] || this.BIOME_GRADIENTS.cyber;
+          info.innerHTML = '<div class="bg-sel-card" style="border-color:'+bg.color+'; background:'+grad+'; background-size:cover;">'+
+            '<div class="bg-sel-overlay"></div>'+
+            '<div class="bg-sel-content">'+
+              '<div class="bg-sel-icon">'+bg.icon+'</div>'+
+              '<div class="bg-sel-name" style="color:'+bg.color+'">'+bg.name+'</div>'+
+              '<div class="bg-sel-theme">'+bg.theme+'</div>'+
+              '<div class="bg-sel-effect" style="color:'+(this.applyBGRules?bg.color:'#666')+'">'+
+                (this.applyBGRules ? bg.effect : '⚪ Rules disabled — standard match')+
+              '</div>'+
+            '</div>'+
+          '</div>';
+          btn.disabled = false;
+          btn.textContent = this.gameMode==='arcade' ? '🔥 Enter The Gauntlet' : '⚡ Find Opponent';
+          btn.style.opacity = '1';
+        } else {
+          info.innerHTML = '<div class="bg-selected-placeholder"><div class="bg-placeholder-icon">🗺️</div><div>Choose a battleground</div></div>';
+          btn.disabled = true;
+          btn.textContent = '⚡ Select a Battleground';
+          btn.style.opacity = '0.5';
+        }
+      },
+
+      setGameMode(mode) {
+        this.gameMode = mode;
+        document.querySelectorAll('.bg-mode-btn').forEach(function(b){
+          b.classList.toggle('active', b.dataset.mode === mode);
+        });
+        document.getElementById('bg-opponent-section').style.display = 
+          (mode==='bot'||mode==='casual') ? 'block' : 'none';
+        document.getElementById('bg-arcade-info').style.display = 
+          mode==='arcade' ? 'flex' : 'none';
+        if (mode === 'arcade') this.selectBattleground('arcade');
+        else if (this.selectedBattleground && this.selectedBattleground.id === 'arcade') {
+          this.selectedBattleground = null;
+        }
+        this.renderBattlegrounds();
+        audio.play('click');
+      },
+
+      selectOpponent(style) {
+        this.selectedOpponent = style;
+        document.querySelectorAll('.bg-opp-card').forEach(function(c){
+          c.classList.toggle('active', c.dataset.style === style);
+        });
+      },
+
+      // ===== DECK SELECTOR =====
+      renderBgDeckList() {
+        const container = document.getElementById('bg-deck-list');
+        if (!container) return;
+        const savedDecks = this.savedDecks || {};
+        const names = Object.keys(savedDecks);
+        let html = `<div class="bg-deck-option bg-deck-option-random ${this.selectedDeckName === null ? 'selected' : ''}"
+          onclick="ui.selectBgDeck(null)">
+          <span class="bg-deck-option-name">🎲 Random Deck</span>
+          <span class="bg-deck-option-count">Auto-select</span>
+        </div>`;
+        names.forEach(name => {
+          const ids = savedDecks[name] || [];
+          const isSelected = this.selectedDeckName === name;
+          html += `<div class="bg-deck-option ${isSelected ? 'selected' : ''}" onclick="ui.selectBgDeck('${name.replace(/'/g,"\\'")}')">
+            <span class="bg-deck-option-name">🃏 ${name}</span>
+            <span class="bg-deck-option-count">${ids.length} cards</span>
+          </div>`;
+        });
+        if (names.length === 0) {
+          html += '<div style="color:var(--text-muted);font-size:0.78rem;padding:6px;text-align:center;">No saved decks — build one first!</div>';
+        }
+        container.innerHTML = html;
+      },
+
+      selectBgDeck(name) {
+        this.selectedDeckName = name;
+        this.renderBgDeckList();
+        const el = document.getElementById('showdown-player-deck');
+        if (el) el.textContent = name || 'Random Deck';
+      },
+
+      getSelectedDeck() {
+        if (this.selectedDeckName && this.savedDecks[this.selectedDeckName]) {
+          const ids = this.savedDecks[this.selectedDeckName];
+          return ids.map(id => ALL_CARDS.find(c => c.id === id)).filter(Boolean);
+        }
+        if (this.deck && this.deck.length >= 10) return [...this.deck];
+        const shuffled = [...ALL_CARDS].sort(() => Math.random() - 0.5);
+        return shuffled.slice(0, 40);
+      },
+
+      launchMatch() {
+        const playerDeck = this.getSelectedDeck();
+        if (playerDeck.length === 0) this.loadPresetByArchetype(Object.keys(this.PRESET_ARCHETYPES)[6]);
+        if (playerDeck.length < 40 && this.deck.length < 40) { this.toast('Deck needs 40 cards!', 'warning'); return; }
+        if (!this.selectedBattleground) { this.toast('Select a battleground!', 'warning'); return; }
+        if (this.gameMode === 'casual' || this.gameMode === 'ranked') {
+          this.toast('Multiplayer coming soon! Playing bot instead.', 'warning');
+          this.gameMode = 'bot';
+        }
+        this.showShowdown();
+      },
+
+      // Avatar generation
+      generateAvatar(canvasId, seed, isEnemy) {
+        var canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        var ctx = canvas.getContext('2d');
+        var w = canvas.width, h = canvas.height;
+        // Background
+        var grad = ctx.createRadialGradient(w/2, h/2, 5, w/2, h/2, w/2);
+        grad.addColorStop(0, isEnemy ? '#ff2a6d' : '#00d9ff');
+        grad.addColorStop(1, isEnemy ? '#330011' : '#001133');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+        // Face
+        ctx.fillStyle = isEnemy ? '#ff6688' : '#66ddff';
+        ctx.beginPath();
+        ctx.arc(w/2, h*0.45, w*0.28, 0, Math.PI*2);
+        ctx.fill();
+        // Eyes
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(w*0.38, h*0.4, w*0.08, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(w*0.62, h*0.4, w*0.08, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.arc(w*0.38, h*0.4, w*0.04, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(w*0.62, h*0.4, w*0.04, 0, Math.PI*2); ctx.fill();
+        // Visor/helmet
+        ctx.strokeStyle = isEnemy ? '#ff2a6d' : '#00d9ff';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(w/2, h*0.45, w*0.32, Math.PI*0.2, Math.PI*0.8);
+        ctx.stroke();
+        // Body
+        ctx.fillStyle = isEnemy ? '#440022' : '#002244';
+        ctx.beginPath();
+        ctx.moveTo(w*0.3, h*0.72);
+        ctx.lineTo(w*0.7, h*0.72);
+        ctx.lineTo(w*0.8, h);
+        ctx.lineTo(w*0.2, h);
+        ctx.closePath();
+        ctx.fill();
+      },
+
+      getOpponentDeckForMode() {
+        var difficulty = this.playerWins ? Math.floor(this.playerWins / 3) : 0;
+        if (this.gameMode === 'arcade') difficulty = Math.min(5, this.arcadeRound);
+        return this.generateEnemyDeck(difficulty, this.selectedOpponent || 'random');
+      },
+
+      generateEnemyDeck(difficulty, style) {
+        difficulty = difficulty || 0;
+        var deck = [];
+        var allCreatures = ALL_CARDS.filter(function(c){return c.type==='Creature'});
+        var allSpells = ALL_CARDS.filter(function(c){return c.type==='Spell'});
+        var allTraps = ALL_CARDS.filter(function(c){return c.type==='Trap'});
+        var allStructures = ALL_CARDS.filter(function(c){return c.type==='Structure'});
+        var creatures = allCreatures, spells = allSpells;
+        if (style === 'aggro') { creatures = allCreatures.filter(function(c){return c.team==='Overchargers'}).concat(allCreatures); spells = allSpells.filter(function(c){return c.team==='Overchargers'}).concat(allSpells); }
+        else if (style === 'control') { creatures = allCreatures.filter(function(c){return c.team==='Control'}).concat(allCreatures); spells = allSpells.filter(function(c){return c.team==='Control'}).concat(allSpells); }
+        else if (style === 'tank') { creatures = allCreatures.filter(function(c){return c.team==='Fortress'||c.team==='Titanborn'}).concat(allCreatures); spells = allSpells.filter(function(c){return c.team==='Fortress'}).concat(allSpells); }
+        else if (style === 'chaos') { creatures = allCreatures.filter(function(c){return c.team==='Chaos'}).concat(allCreatures); spells = allSpells.filter(function(c){return c.team==='Chaos'}).concat(allSpells); }
+        var sortFn = function(a,b){return (b.attack+b.defense)-(a.attack+a.defense)};
+        var elite = [...allCreatures].sort(sortFn).slice(0, 15);
+        for (var i=0; i<25; i++) { var pool = i < 5 + difficulty*3 ? elite : creatures; deck.push({...pool[Math.floor(Math.random()*pool.length)]}); }
+        for (var i=0; i<8; i++) deck.push({...spells[Math.floor(Math.random()*spells.length)]});
+        for (var i=0; i<4; i++) deck.push({...allTraps[Math.floor(Math.random()*allTraps.length)]});
+        for (var i=0; i<3; i++) deck.push({...allStructures[Math.floor(Math.random()*allStructures.length)]});
+        return deck;
+      },
+
+// ===== BATTLE CARD PLAY =====
+      // ===== BATTLE: DRAG-DROP CARD PLAY =====
+      // Dragging state
+      dragCard: null,
+      dragElement: null,
+      dragStartX: 0,
+      dragStartY: 0,
+
+      initBattleDrag() {
+        this.cleanupBattleDrag();
+        this.renderBattle();
+        this._dragMoveFn = (e) => this.onBattleDrag(e);
+        this._dragUpFn = (e) => this.onBattleDrop(e);
+        this._touchMoveFn = (e) => { e.preventDefault(); this.onBattleDrag(e.touches[0] || e); };
+        this._touchEndFn = (e) => { this.onBattleDrop(e.changedTouches[0] || e); };
+        document.addEventListener('mousemove', this._dragMoveFn);
+        document.addEventListener('mouseup', this._dragUpFn);
+        document.addEventListener('touchmove', this._touchMoveFn, { passive: false });
+        document.addEventListener('touchend', this._touchEndFn);
+      },
+
+      cleanupBattleDrag() {
+        if (this._dragMoveFn) { document.removeEventListener('mousemove', this._dragMoveFn); this._dragMoveFn = null; }
+        if (this._dragUpFn) { document.removeEventListener('mouseup', this._dragUpFn); this._dragUpFn = null; }
+        if (this._touchMoveFn) { document.removeEventListener('touchmove', this._touchMoveFn); this._touchMoveFn = null; }
+        if (this._touchEndFn) { document.removeEventListener('touchend', this._touchEndFn); this._touchEndFn = null; }
+        if (this._arrowMoveFn) { document.removeEventListener('mousemove', this._arrowMoveFn); this._arrowMoveFn = null; }
+        if (this._deselectFn) { document.removeEventListener('mouseup', this._deselectFn); this._deselectFn = null; }
+        this.dragCard = null;
+        this.dragElement = null;
+        this.selectedAttacker = null;
+        this.hideAttackArrow();
+      },
+
+      onBattleDrag(e) {
+        if (!this.dragCard || !this.dragElement) return;
+        this.dragElement.style.left = (e.clientX - this.dragStartX) + 'px';
+        this.dragElement.style.top = (e.clientY - this.dragStartY) + 'px';
+      },
+
+      onBattleDrop(e) {
+        if (!this.dragCard || !this.dragElement) return;
+        const card = this.dragCard;
+        const el = this.dragElement;
+        this.dragCard = null;
+        this.dragElement = null;
+        el.remove();
+
+        // Find drop target slot
+        const target = document.elementFromPoint(e.clientX, e.clientY);
+        const slot = target ? target.closest('.battle-slot-droppable') : null;
+        if (slot) {
+          const zone = slot.dataset.zone;
+          const index = parseInt(slot.dataset.index);
+          const success = this.game.playCard(this.game.player, card, { zone, index });
+          if (success) {
+            audio.play('play');
+            this.renderBattle();
+            quests.updateProgress('play', 1);
+            return;
+          }
+        }
+        // Drop failed — return card to hand
+        audio.play('error');
+        this.renderBattle();
+      },
+
+      startCardDrag(e, cardInstanceId) {
+        if (!this.game || this.game.currentPlayer !== this.game.player) return;
+        if (this.game.phase !== 'main') return;
+        // Match by instanceId, fall back to id for backwards compat
+        const card = this.game.player.hand.find(c => c.instanceId === cardInstanceId || c.id === cardInstanceId);
+        if (!card) return;
+        e.preventDefault();
+        this.dragCard = card;
+
+        // Create floating card element
+        const el = document.createElement('div');
+        el.className = 'card in-hand dragging';
+        const srcEl = document.querySelector(`.card[data-instance="${card.instanceId || card.id}"]`)
+          || document.querySelector(`.card[data-id="${card.id}"]`);
+        el.innerHTML = srcEl ? srcEl.innerHTML : '';
+        el.style.position = 'fixed';
+        el.style.zIndex = '9999';
+        el.style.pointerEvents = 'none';
+        el.style.transform = 'scale(1.1)';
+        el.style.opacity = '0.9';
+        document.body.appendChild(el);
+
+        this.dragElement = el;
+        this.dragStartX = 40;
+        this.dragStartY = 60;
+        el.style.left = (e.clientX - 40) + 'px';
+        el.style.top = (e.clientY - 60) + 'px';
+
+        // Highlight valid drop zones
+        document.querySelectorAll('.battle-slot-droppable').forEach(s => s.classList.add('drop-target'));
+      },
+
+      // ===== BANK PHASE =====
+      startBankPhase(data) {
+        if (!this.game || this.game.phase !== 'bank') return;
+        if (this.game.currentPlayer !== this.game.player) return;
+        const bankEl = document.getElementById('bank-zone');
+        bankEl.style.display = 'flex';
+        bankEl.classList.remove('closing');
+        const turnLabel = document.getElementById('bank-turn-label');
+        if (turnLabel) turnLabel.textContent = 'Turn ' + (this.game.player.turn || 1);
+        this.updateBankMana();
+        this.renderBankMarket(false);
+        this.updateBankHandPreview();
+        this.startPhaseTimer(60, 'Bank Phase', () => this.endBankPhase());
+      },
+
+      updateBankMana() {
+        if (!this.game) return;
+        const p = this.game.player;
+        const mana = p.mana || 0;
+        const maxMana = p.maxMana || 0;
+        let manaHtml = '';
+        for (let i = 0; i < 10; i++) {
+          if (i < maxMana) manaHtml += `<span class="mana-crystal ${i < mana ? 'full' : 'spent'}"></span>`;
+          else manaHtml += `<span class="mana-crystal empty"></span>`;
+        }
+        const el = document.getElementById('bank-mana-crystals');
+        if (el) el.innerHTML = manaHtml;
+        const txt = document.getElementById('bank-mana-text');
+        if (txt) txt.textContent = mana + ' / ' + maxMana + ' Mana';
+      },
+
+      updateBankHandPreview() {
+        if (!this.game) return;
+        const p = this.game.player;
+        const container = document.getElementById('bank-hand-cards');
+        if (!container) return;
+        const label = document.querySelector('.bank-hand-label');
+        if (label) label.textContent = `Your Hand (${p.hand.length})`;
+        if (p.hand.length === 0) {
+          container.innerHTML = '<div style="color:var(--text-muted);font-size:0.75rem;padding:10px;">No cards — buy from the Bank!</div>';
+        } else {
+          container.innerHTML = p.hand.map(c => `<div class="bank-hand-card">${this.renderCard(c, true)}</div>`).join('');
+        }
+      },
+
+      renderBankMarket(animateNew) {
+        if (!this.game) return;
+        const p = this.game.player;
+        const mana = p.mana || 0;
+        const market = this.game.currentMarket || [];
+        const container = document.getElementById('bank-cards');
+        if (!container) return;
+        const existingIds = new Set([...container.querySelectorAll('.bank-card-slot[data-meta]')].map(el => el.dataset.meta));
+        if (!market || market.length === 0) {
+          container.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:20px;">Market depleted — no cards available</div>';
+        } else {
+          container.innerHTML = market.map(c => {
+            const cost = c.cost !== undefined ? c.cost : (c.power || 0);
+            const canAfford = mana >= cost;
+            const isNew = animateNew && !existingIds.has(c._metaId);
+            return `<div class="bank-card-slot ${canAfford ? '' : 'unaffordable'}" data-id="${c.id}" data-meta="${c._metaId}" data-cost="${cost}"
+              ${canAfford ? `onclick="ui.buyBankCard('${c._metaId}')"` : ''}
+              title="${canAfford ? 'Buy for ' + cost + ' mana' : 'Costs ' + cost + ' mana'}">
+              <div class="${isNew ? 'card-dealing-anim' : ''}">
+                ${this.renderCard(c, true)}
+              </div>
+            </div>`;
+          }).join('');
+        }
+        const rem = document.getElementById('bank-deck-remaining');
+        if (rem && this.game.metaDeck) rem.textContent = this.game.metaDeck.filter(c => !this.game.shownCardIds.has(c.id)).length;
+      },
+
+      refreshBankPhase() {
+        this.updateBankMana();
+        this.updateBankHandPreview();
+        this.renderBankMarket(true);
+      },
+
+      buyBankCard(cardId) {
+        if (!this.game || this.game.phase !== 'bank') return;
+        const slotEl = document.querySelector(`.bank-card-slot[data-meta="${cardId}"]`) || document.querySelector(`.bank-card-slot[data-id="${cardId}"]`);
+        if (slotEl) {
+          slotEl.classList.add('card-buying-anim');
+          setTimeout(() => {
+            const success = this.game.buyCard(this.game.player, cardId);
+            if (success) {
+              audio.play('play');
+              this.refreshBankPhase();
+              // Do NOT auto-end bank phase — let the player decide
+              // when they're done buying. Just highlight the end button.
+              const endBtn = document.getElementById('bank-end-btn');
+              if (endBtn && this.game.player.mana < 2) {
+                endBtn.classList.add('pulse-hint');
+              }
+            } else {
+              audio.play('error');
+            }
+          }, 480);
+        } else {
+          const success = this.game.buyCard(this.game.player, cardId);
+          if (success) { audio.play('play'); this.refreshBankPhase(); }
+          else audio.play('error');
+        }
+      },
+
+      endBankPhase() {
+        this.stopPhaseTimer();
+        const bankEl = document.getElementById('bank-zone');
+        if (!bankEl) return;
+        const btn = document.getElementById('turn-timer-btn');
+        if (btn) { btn.classList.add('activating'); setTimeout(() => btn.classList.remove('activating'), 400); }
+        bankEl.classList.add('closing');
+        setTimeout(() => {
+          bankEl.style.display = 'none';
+          bankEl.classList.remove('closing');
+          if (this.game && this.game.phase === 'bank' && this.game.currentPlayer === this.game.player) {
+            this.game.endBankPhase(this.game.player);
+          }
+          this.renderBattle();
+        }, 320);
+      },
+
+      // ===== PHASE TIMER =====
+      startPhaseTimer(totalSeconds, phaseLabel, onExpire) {
+        this.stopPhaseTimer();
+        this.phaseTimeLeft = totalSeconds;
+        this.phaseTotalTime = totalSeconds;
+        const circumference = 163.4;
+        const clockLabel = document.getElementById('clock-phase-label');
+        if (clockLabel) clockLabel.textContent = phaseLabel;
+        const updateClock = () => {
+          const t = this.phaseTimeLeft;
+          const pct = t / this.phaseTotalTime;
+          const clockFill = document.getElementById('clock-fill-ring');
+          const clockCount = document.getElementById('clock-countdown');
+          const handSec = document.getElementById('clock-hand-sec');
+          const handMin = document.getElementById('clock-hand-min');
+          if (clockFill) {
+            clockFill.style.strokeDashoffset = circumference * (1 - pct);
+            if (t <= 5) clockFill.classList.add('urgent');
+            else clockFill.classList.remove('urgent');
+          }
+          if (clockCount) clockCount.textContent = t;
+          if (handSec) handSec.style.transform = `rotate(${((totalSeconds - t) % 60) / 60 * 360}deg)`;
+          if (handMin) handMin.style.transform = `rotate(${((totalSeconds - t) / totalSeconds) * 360}deg)`;
+        };
+        updateClock();
+        this.phaseTimer = setInterval(() => {
+          this.phaseTimeLeft--;
+          updateClock();
+          if (this.phaseTimeLeft <= 0) {
+            this.stopPhaseTimer();
+            if (onExpire) onExpire();
+          }
+        }, 1000);
+      },
+
+      stopPhaseTimer() {
+        if (this.phaseTimer) { clearInterval(this.phaseTimer); this.phaseTimer = null; }
+      },
+
+      // ===== GRAVEYARD =====
+      toggleGraveyard(who) {
+        const modal = document.getElementById('graveyard-modal');
+        if (modal.style.display === 'flex') {
+          this.closeGraveyard();
+          return;
+        }
+        const player = who === 'player' ? this.game.player : this.game.enemy;
+        const cards = player.field.graveyard || [];
+        document.getElementById('gy-modal-title').textContent = (who === 'player' ? 'Your' : 'Enemy') + ' Graveyard (' + cards.length + ')';
+        const container = document.getElementById('gy-modal-cards');
+        if (cards.length === 0) {
+          container.innerHTML = '<div class="empty-hint">No destroyed cards</div>';
+        } else {
+          container.innerHTML = cards.slice(-20).reverse().map(c => this.renderCard(c, true)).join('');
+        }
+        modal.style.display = 'flex';
+      },
+
+      closeGraveyard() {
+        document.getElementById('graveyard-modal').style.display = 'none';
+      },
+
+      // ===== BATTLE RENDERING =====
+      renderBattle() {
+        if (!this.game) return;
+
+        const p = this.game.player;
+        const e = this.game.enemy;
+        const isPlayerTurn = this.game.currentPlayer === p;
+
+        // Update shader engine state (background pass)
+        if (typeof SynthShaderEngine !== 'undefined') {
+          SynthShaderEngine.updateState(this.game);
+        }
+
+        // SVG HP rings (circumference 2π×20 = 125.66)
+        const hpCirc = 125.66;
+        const pHpOffset = hpCirc * (1 - Math.max(0, Math.min(1, p.hp / p.maxHp)));
+        const eHpOffset = hpCirc * (1 - Math.max(0, Math.min(1, e.hp / e.maxHp)));
+        const pRing = document.getElementById('player-hp-ring-svg');
+        const eRing = document.getElementById('enemy-hp-ring-svg');
+        if (pRing) {
+          pRing.style.strokeDashoffset = pHpOffset;
+          pRing.style.stroke = p.hp > p.maxHp * 0.5 ? 'var(--accent-green)' : p.hp > p.maxHp * 0.25 ? 'var(--accent-gold)' : 'var(--accent-red)';
+        }
+        if (eRing) eRing.style.strokeDashoffset = eHpOffset;
+
+        const el = (id, v) => { const node = document.getElementById(id); if (node) node.textContent = v; };
+        el('player-hp', p.hp);
+        el('enemy-hp', e.hp);
+        el('player-name', p.name);
+        el('enemy-name', e.name);
+        if (typeof CHARACTERS !== 'undefined') {
+          var renderCharBadge = function(elId, glowId, character) {
+            var node = document.getElementById(elId);
+            var glow = document.getElementById(glowId);
+            var ch = character && CHARACTERS[character];
+            if (node) node.innerHTML = ch ? '<span style="--char-color:' + ch.color + ';">' + ch.icon + ' ' + ch.name + '</span>' : '';
+            if (glow) glow.style.background = ch ? ('radial-gradient(circle, ' + ch.color + '55 0%, transparent 70%)') : '';
+          };
+          renderCharBadge('player-character-badge', 'player-avatar-glow', p.character);
+          renderCharBadge('enemy-character-badge', 'enemy-avatar-glow', e.character);
+        }
+
+        // Mana crystals in player bars
+        const renderBarMana = (elId, mana, maxMana) => {
+          const node = document.getElementById(elId);
+          if (!node) return;
+          let h = '';
+          for (let i = 0; i < 10; i++) {
+            if (i < maxMana) h += `<span class="mana-crystal ${i < mana ? 'full' : 'spent'}" style="width:8px;height:8px;"></span>`;
+            else h += `<span class="mana-crystal empty" style="width:8px;height:8px;"></span>`;
+          }
+          node.innerHTML = h;
+        };
+        renderBarMana('player-mana-crystals', p.mana || 0, p.maxMana || 0);
+        renderBarMana('enemy-mana-crystals', e.mana || 0, e.maxMana || 0);
+
+        // Energy label — shows mana during bank phase, power during main phase
+        const pEnEl = document.getElementById('player-energy');
+        if (pEnEl) pEnEl.textContent = this.game.phase === 'bank'
+          ? `💎 ${p.mana||0}/${p.maxMana||0}`
+          : `⚡ ${p.power||0}/${p.basePower||p.turn}` + (p.shield > 0 ? ` 🛡${p.shield}` : '');
+        const eEnEl = document.getElementById('enemy-energy');
+        if (eEnEl) eEnEl.textContent = this.game.phase === 'bank'
+          ? `💎 ${e.mana||0}/${e.maxMana||0}`
+          : `⚡ ${e.power||0}/${e.basePower||e.turn}` + (e.shield > 0 ? ` 🛡${e.shield}` : '');
+
+        // Shield display
+        const pShield = document.getElementById('player-shield');
+        const eShield = document.getElementById('enemy-shield');
+        if (pShield) pShield.textContent = p.shield > 0 ? '🛡 ' + p.shield : '';
+        if (eShield) eShield.textContent = e.shield > 0 ? '🛡 ' + e.shield : '';
+
+        // Field modifiers display
+        const pMods = document.getElementById('player-modifiers');
+        const eMods = document.getElementById('enemy-modifiers');
+        if (pMods) {
+          var pBuffs = (p.buffStacks||[]);
+          pMods.innerHTML = pBuffs.length > 0
+            ? pBuffs.map(function(b){ return `<span class="mod-chip mod-${b.type}">${b.type==='atk'?'⚔':b.type==='def'?'🛡':b.type==='hp'?'❤':'⚡'}${b.amount>0?'+':''}${b.amount} (${b.duration})</span>`; }).join('')
+            : '';
+        }
+        if (eMods) {
+          var eBuffs = (e.buffStacks||[]);
+          eMods.innerHTML = eBuffs.length > 0
+            ? eBuffs.map(function(b){ return `<span class="mod-chip mod-${b.type}">${b.type==='atk'?'⚔':b.type==='def'?'🛡':b.type==='hp'?'❤':'⚡'}${b.amount>0?'+':''}${b.amount} (${b.duration})</span>`; }).join('')
+            : '';
+        }
+
+        // Battleground banner
+        const bgBanner = document.getElementById('battleground-banner');
+        if (bgBanner && this.game.battleground) {
+          bgBanner.textContent = this.game.battleground.icon + ' ' + this.game.battleground.name;
+          bgBanner.style.color = this.game.battleground.color || 'var(--accent-cyan)';
+        }
+
+        // Trap counts
+        const pTrapCount = (p.field && p.field.trap ? p.field.trap.filter(Boolean).length : 0);
+        const eTrapCount = (e.field && e.field.trap ? e.field.trap.filter(Boolean).length : 0);
+        el('player-trap-count', pTrapCount);
+        el('enemy-trap-count', eTrapCount);
+
+        this.updateWinTracker();
+
+        // Deck & GY counts
+        el('player-deck-count', p.deck.length);
+        el('enemy-deck-count', e.deck.length);
+        el('player-gy-count', (p.field.graveyard || []).length);
+        el('enemy-gy-count', (e.field.graveyard || []).length);
+
+        // Graveyard top card
+        const renderGyCard = (containerId, cards) => {
+          const c = document.getElementById(containerId);
+          if (!c) return;
+          if (cards && cards.length > 0) {
+            const top = cards[cards.length - 1];
+            c.innerHTML = `<span style="font-size:0.6rem;color:var(--text-secondary);">${top.name}</span>`;
+          } else {
+            c.innerHTML = '<span style="font-size:0.5rem;color:var(--text-muted);">Empty</span>';
+          }
+        };
+        renderGyCard('player-gy-card', p.field.graveyard);
+        renderGyCard('enemy-gy-card', e.field.graveyard);
+
+        // Player hand (draggable)
+        const handEl = document.getElementById('player-hand');
+        handEl.innerHTML = isPlayerTurn
+          ? p.hand.map(c => `<div class="hand-card-wrapper" onmousedown="ui.startCardDrag(event, '${c.instanceId || c.id}')" ontouchstart="ui.startCardDrag(event, '${c.instanceId || c.id}')">
+              ${this.renderCard(c, true)}
+            </div>`).join('')
+          : '';
+
+        // Enemy hand (compact card backs)
+        const enemyHandEl = document.getElementById('enemy-hand');
+        enemyHandEl.innerHTML = e.hand.map(() => '<div class="hand-card-wrapper"><div class="card card-back in-hand enemy-small"><div class="card-frame"></div></div></div>').join('');
+
+        // Battlefield slots (player — droppable)
+        this.renderBattleRow('player-battle-row', p.field.battle, true, true);
+        // Enemy battlefield (not droppable by player, always oriented right-side-up)
+        this.renderBattleRow('enemy-battle-row', e.field.battle, false, false);
+        // Base / structure rows
+        this.renderBaseRow('player-base-row', p.field.base, true, true);
+        this.renderBaseRow('enemy-base-row', e.field.base, false, false);
+
+        // Slay-the-Spire style enemy intent
+        this.updateIntentBar();
+        // Battle feed (latest log entries)
+        this.updateBattleFeed();
+
+        // Highlight enemy HP orb as attack-base target when attacker selected
+        const hpOrb = document.getElementById('enemy-hp-orb');
+        if (hpOrb) hpOrb.classList.toggle('targetable', !!(this.selectedAttacker && isPlayerTurn && this.game.phase === 'main'));
+
+        // Danger level indicator
+        const dangerLvl = document.getElementById('danger-level-indicator');
+        if (dangerLvl && this.game.dangerLevel > 0) {
+          const flames = '🔥'.repeat(Math.min(5, this.game.dangerLevel));
+          dangerLvl.innerHTML = `<span class="danger-lvl-text">☀️ DANGER ${this.game.dangerLevel}/5</span> ${flames}`;
+          dangerLvl.style.display = 'flex';
+        } else if (dangerLvl) {
+          dangerLvl.style.display = 'none';
+        }
+
+        // Shield visual on player HP bar — already handled above via player-shield / enemy-shield
+
+        // Turn timer button
+        const timerBtn = document.getElementById('turn-timer-btn');
+        const phaseLabel = document.getElementById('turn-phase-label');
+        const timerSpan = document.getElementById('turn-timer');
+        if (isPlayerTurn) {
+          if (this.game.phase === 'bank') {
+            if (phaseLabel) phaseLabel.textContent = 'Bank Phase';
+            if (timerSpan) timerSpan.textContent = '⚡';
+            timerBtn.className = 'turn-timer-btn player-turn bank-phase-btn';
+            timerBtn.onclick = function(){ ui.endBankPhase(); };
+          } else {
+            if (phaseLabel) phaseLabel.textContent = 'Your Turn';
+            timerBtn.className = 'turn-timer-btn player-turn';
+            timerBtn.onclick = function(){ ui.endTurn(); };
+            if (timerSpan) timerSpan.textContent = (this.game.turnTimer || 20) + 's';
+            if (this.game.turnTimer <= 5) {
+              timerBtn.classList.add('urgent');
+            } else {
+              timerBtn.classList.remove('urgent');
+            }
+          }
+        } else {
+          if (phaseLabel) phaseLabel.textContent = this.game.phase === 'bank' ? 'Enemy Buying...' : 'Enemy Turn';
+          timerBtn.className = 'turn-timer-btn enemy-turn';
+          timerBtn.onclick = null;
+          if (timerSpan) timerSpan.textContent = '⚡';
+        }
+
+        // Bank phase — show/hide bank zone
+        var bankZone = document.getElementById('bank-zone');
+        if (this.game.phase === 'bank' && isPlayerTurn) {
+          if (bankZone) bankZone.classList.add('active');
+          this.startBankPhase(null);
+        } else {
+          if (bankZone) bankZone.classList.remove('active');
+        }
+
+        // Apply shader-derived CSS after all DOM is rendered
+        if (typeof SynthShaderEngine !== 'undefined') {
+          SynthShaderEngine.refreshCardShaders();
+        }
+      },
+
+      renderBaseRow(elementId, cards, isPlayer, isDroppable) {
+        const container = document.getElementById(elementId);
+        if (!container) return;
+        let html = '';
+        for (let i = 0; i < 5; i++) {
+          const card = cards[i];
+          if (card) {
+            let onclick = '';
+            // Enemy structures can be attack targets when player has an attacker selected
+            if (!isPlayer && this.selectedAttacker && this.game.currentPlayer === this.game.player && this.game.phase === 'main') {
+              onclick = `onclick="ui.selectStructureTarget('${card.instanceId || card.id}')"`;
+            }
+            const hpPct = card.health > 0 ? Math.max(0, Math.min(100, ((card.currentHp !== undefined ? card.currentHp : card.health) / card.health) * 100)) : 0;
+            const hpClass = hpPct > 60 ? 'hp-high' : hpPct > 30 ? 'hp-medium' : 'hp-low';
+            const targetable = (!isPlayer && this.selectedAttacker) ? ' targetable' : '';
+            html += `<div class="base-slot${targetable}" data-zone="base" data-index="${i}" ${onclick}>
+              <div class="base-card-mini team-${(card.team||'Neutral').toLowerCase().replace(/[' ]/g,'-')}">
+                <span class="base-icon">${card.icon || '🏗️'}</span>
+                <span class="base-name">${card.name}</span>
+                <span class="base-stats">${card.attack > 0 ? '⚔' + (card.currentAtk !== undefined ? card.currentAtk : card.attack) + ' ' : ''}🛡${card.currentDef !== undefined ? card.currentDef : (card.defense || 0)}</span>
+                <div class="base-hp-bar"><div class="base-hp-fill ${hpClass}" style="width:${hpPct}%"></div></div>
+                <span class="base-hp-text">${card.currentHp !== undefined ? card.currentHp : card.health}/${card.health}</span>
+              </div>
+            </div>`;
+          } else if (isDroppable && isPlayer && this.game.currentPlayer === this.game.player && this.game.phase === 'main') {
+            html += `<div class="base-slot empty-base battle-slot-droppable" data-zone="base" data-index="${i}">+</div>`;
+          } else {
+            html += '<div class="base-slot empty-base"></div>';
+          }
+        }
+        container.innerHTML = html;
+      },
+
+      selectStructureTarget(structureId) {
+        if (!this.game || !this.selectedAttacker) return;
+        const structure = this.game.enemy.field.base.find(c => c && (c.instanceId === structureId || c.id === structureId));
+        if (!structure) return;
+        this.game.attackStructure(this.game.player, this.selectedAttacker, this.game.enemy, structure);
+        this.selectedAttacker = null;
+        this.hideAttackArrow();
+        this.renderBattle();
+        audio.play('attack');
+      },
+
+      updateIntentBar() {
+        const bar = document.getElementById('enemy-intent-bar');
+        if (!bar || !this.game) return;
+        if (this.game.state !== 'battle') { bar.style.display = 'none'; return; }
+        const intent = this.game.getEnemyIntent();
+        if (!intent) { bar.style.display = 'none'; return; }
+        const icon = document.getElementById('intent-icon');
+        const text = document.getElementById('intent-text');
+        const charEl = document.getElementById('intent-character');
+        if (icon) icon.textContent = intent.icon;
+        if (text) text.textContent = intent.text;
+        // Add character personality to intent bar
+        if (charEl && this.game.enemy && typeof CHARACTERS !== 'undefined') {
+          var enemyCharId = this.game.enemy.character;
+          var ch = enemyCharId && CHARACTERS[enemyCharId];
+          if (ch) {
+            charEl.textContent = ch.icon;
+            charEl.title = ch.name;
+            bar.style.borderColor = ch.color + '88';
+          } else {
+            charEl.textContent = '';
+          }
+        }
+        bar.style.display = 'flex';
+        bar.className = 'enemy-intent-bar intent-' + (intent.atk >= this.game.player.hp ? 'lethal' : intent.atk > 0 ? 'attack' : 'calm');
+      },
+
+      updateBattleFeed() {
+        const feed = document.getElementById('battle-feed-entries');
+        if (!feed || !this.game) return;
+        const battleLogEntries = this.game.battleHistory || [];
+        // Use battleHistory (structured) if available, fall back to battleLog (plain text)
+        let entries;
+        if (battleLogEntries.length > 0) {
+          entries = battleLogEntries.slice(-16).reverse();
+        } else {
+          entries = (this.game.battleLog || []).slice(-12).reverse();
+        }
+        feed.innerHTML = entries.map(function(e) {
+          var icon = '', cls = '', msg = '';
+          if (e.type === 'buy') { icon = '🛒'; cls = 'feed-play'; msg = e.data && e.data.card ? (e.data.player === 'player' ? 'You buy ' : 'Enemy buys ') + e.data.card : ''; }
+          else if (e.type === 'play') { icon = '▶️'; cls = 'feed-play'; msg = e.data && e.data.card ? (e.data.player === 'player' ? 'You play ' : 'Enemy plays ') + e.data.card : ''; }
+          else if (e.type === 'attack') { icon = '⚔️'; cls = 'feed-combat'; msg = e.data && e.data.attacker ? e.data.attacker + ' attacks ' + (e.data.target || 'base') + ' for ' + (e.data.damage || 0) : ''; }
+          else if (e.type === 'damage') { icon = '💥'; cls = 'feed-combat'; msg = (e.data && e.data.amount ? e.data.amount + ' damage' : 'Damage') + (e.data && e.data.type ? ' (' + e.data.type + ')' : ''); }
+          else if (e.type === 'spellEffect') { icon = '✨'; cls = 'feed-play'; msg = 'Spell resolved'; }
+          else if (e.type === 'abilityTrigger') { icon = '⚡'; cls = 'feed-play'; msg = e.data && e.data.type ? e.data.type : 'Ability triggers'; }
+          else if (e.type === 'dangerEvent') { icon = '🌌'; cls = 'feed-danger'; msg = e.data && e.data.event ? e.data.event.name + ' — ' + e.data.event.desc : 'Danger event'; }
+          else if (e.type === 'battleStart') { icon = '🏁'; cls = 'feed-win'; msg = 'Battle begins!'; }
+          else if (e.type === 'gameEnd') { icon = '🏆'; cls = 'feed-win'; msg = e.data && e.data.winner ? e.data.winner.toUpperCase() + ' WINS!' : 'Game Over'; }
+          else if (e.type === 'teamSynergy') { icon = '🔗'; cls = 'feed-play'; msg = e.data && e.data.team ? e.data.team + ' synergy ' + (e.data.count >= 3 ? 'FULL' : 'ally') : 'Synergy'; }
+          else if (e.type === 'turnStart') { icon = '▶️'; cls = 'feed-play'; msg = 'Turn ' + (e.data && e.data.turn || '') + ' - ' + (e.data && e.data.player || '') + ' (Mana ' + (e.data && e.data.maxMana || '') + ')'; }
+          else if (e.type === 'bankEnd') { icon = '💰'; cls = 'feed-play'; msg = (e.data && e.data.player || '') + ' ends Bank (' + (e.data && e.data.manaSpent || 0) + ' spent' + (e.data && e.data.manaBurn ? ', ' + e.data.manaBurn + ' burn' : '') + ')'; }
+          else if (e.type === 'structureDamage') { icon = '🏗️'; cls = 'feed-combat'; msg = (e.data && e.data.structure || 'Structure') + ' hit for ' + (e.data && e.data.damage || 0) + ' (HP: ' + (e.data && e.data.remaining || 0) + ')'; }
+          else if (e.type === 'structureDestroyed') { icon = '💥'; cls = 'feed-combat'; msg = 'Structure ' + (e.data && e.data.structure || '') + ' destroyed!'; }
+          else if (e.type === 'trapTrigger') { icon = '💣'; cls = 'feed-danger'; msg = 'Trap ' + (e.data && e.data.trap || '') + ' hits ' + (e.data && e.data.target || '') + ' for ' + (e.data && e.data.damage || 0); }
+          else if (e.type === 'combo') { icon = '🔗'; cls = 'feed-play'; msg = (e.data && e.data.type || 'Combo') + '!'; }
+          else {
+            // Fallback: use plain log text
+            var logMsg = e.message || (typeof e === 'string' ? e : (e.data ? e.data.message || e.data.card || '' : ''));
+            if (!logMsg && this.game && this.game.battleLog) {
+              var idx2 = this.game.battleLog.findIndex(function(l) { return l.time === e.time; });
+              if (idx2 >= 0) logMsg = this.game.battleLog[idx2].message;
+            }
+            msg = logMsg || '';
+            icon = /DANGER/.test(msg) ? '🌌' : /WINS|VICTORY/.test(msg) ? '🏆' : /destroyed|hits|attacks/.test(msg) ? '⚔️' : /buys/.test(msg) ? '🛒' : /plays|casts/.test(msg) ? '▶️' : '📋';
+          }
+          if (!msg) msg = e.message || '';
+          var ts = '';
+          if (e.time && this.game && this.game.gameStartTime) {
+            var secs = Math.floor((e.time - this.game.gameStartTime) / 1000);
+            var m = Math.floor(secs / 60);
+            var s = secs % 60;
+            ts = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+          }
+          return '<div class="feed-entry ' + cls + '"><span class="feed-turn">T' + (e.turn || '') + '</span>' + (ts ? '<span class="feed-ts">' + ts + '</span>' : '') + ' <span class="feed-icon">' + icon + '</span> ' + msg + '</div>';
+        }, this).join('');
+      },
+
+      showAttackArrow(fromEl, toX, toY) {
+        const path = document.getElementById('attack-arrow-path');
+        if (!path || !fromEl) return;
+        const r = fromEl.getBoundingClientRect();
+        const x1 = r.left + r.width / 2, y1 = r.top + r.height / 2;
+        path.setAttribute('d', `M ${x1} ${y1} Q ${(x1 + toX) / 2} ${Math.min(y1, toY) - 60} ${toX} ${toY}`);
+        path.style.display = 'block';
+      },
+      hideAttackArrow() {
+        const path = document.getElementById('attack-arrow-path');
+        if (path) path.style.display = 'none';
+        if (this._arrowMoveFn) { document.removeEventListener('mousemove', this._arrowMoveFn); this._arrowMoveFn = null; }
+        if (this._deselectFn) { document.removeEventListener('mouseup', this._deselectFn); this._deselectFn = null; }
+      },
+
+      renderBattleRow(elementId, cards, isPlayer, isDroppable) {
+        const container = document.getElementById(elementId);
+        if (!container) return;
+        let html = '';
+        for (let i = 0; i < 5; i++) {
+          const card = cards[i];
+          if (card) {
+            let onclick = '';
+            if (isPlayer && this.game.currentPlayer === this.game.player && this.game.phase === 'main') {
+              onclick = `onclick="ui.selectBattleAttacker('${card.instanceId || card.id}')"`;
+            } else if (!isPlayer && this.selectedAttacker && this.game.currentPlayer === this.game.player) {
+              onclick = `onclick="ui.selectBattleTarget('${card.instanceId || card.id}')"`;
+            }
+            // Summoning sickness indicator
+            const cannotAttack = card.justPlayed && !card.canAttack && card.type !== 'Structure';
+            const hasHaste = card.canAttack && (card.ability && (card.ability.includes('Haste') || card.ability.includes('haste') || card.ability.includes('Charge')));
+            const sleepBadge = cannotAttack ? '<span class="card-sleep-badge" title="Summoning sickness — cannot attack this turn">💤</span>' : '';
+            const hasteBadge = hasHaste ? '<span class="card-haste-badge" title="Haste — can attack immediately">⚡</span>' : '';
+            // Hearthstone-style attack pips: green = ready, grey = used
+            const aLeft = card.attacksLeft !== undefined ? card.attacksLeft : (card.canAttack && !card.justPlayed ? 1 : 0);
+            const aPer = card.attacksPerTurn || 1;
+            let pips = '';
+            if (isPlayer && !cannotAttack) {
+              for (let pi = 0; pi < aPer; pi++) {
+                pips += `<span class="attack-pip ${pi < aLeft ? 'pip-ready' : 'pip-used'}"></span>`;
+              }
+              pips = `<span class="attack-pips" title="${aLeft}/${aPer} attacks left">${pips}</span>`;
+            }
+            // Overclock activation button (Cyborg keyword)
+            let overclockBtn = '';
+            if (isPlayer && !cannotAttack && card.ability && card.ability.includes('Overclock') && aLeft > 0) {
+              overclockBtn = `<span class="overclock-btn" onclick="event.stopPropagation();ui.activateOverclock('${card.instanceId || card.id}')" title="Overclock: attack again (takes 1 self-damage)">⚡+1</span>`;
+            }
+            const selected = this.selectedAttacker && (this.selectedAttacker.instanceId === card.instanceId || this.selectedAttacker.id === card.id) ? ' attacker-selected' : '';
+            const sleepClass = cannotAttack ? ' zzz-card' : '';
+            const readyClass = (!cannotAttack && isPlayer && hasAttacksLeft && !isFrozen) ? ' ready-to-attack' : '';
+            const targetableCls = (!isPlayer && this.selectedAttacker) ? ' targetable' : '';
+            html += `<div class="battle-slot-droppable${selected}${readyClass}${targetableCls}${isDroppable ? ' drop-target' : ''}${sleepClass}" data-zone="battle" data-index="${i}" ${onclick}>
+              ${sleepBadge}${hasteBadge}${pips}${overclockBtn}
+              ${this.renderCard(card, true, true, true)}
+            </div>`;
+          } else if (isDroppable) {
+            html += `<div class="battle-slot-droppable empty-slot" data-zone="battle" data-index="${i}">Drop<br>here</div>`;
+          } else if (this.selectedAttacker && this.game.currentPlayer === this.game.player) {
+            html += `<div class="battle-slot-droppable empty-slot targetable" onclick="ui.attackEnemyBase()">Attack<br>Base</div>`;
+          } else {
+            html += '<div class="battle-slot-droppable empty-slot"></div>';
+          }
+        }
+        container.innerHTML = html;
+      },
+
+      updateWinTracker() {
+        if (!this.game) return;
+        const p = this.game.player;
+        const e = this.game.enemy;
+        let container = document.getElementById('win-tracker-hud');
+        if (!container) {
+          container = document.createElement('div');
+          container.id = 'win-tracker-hud';
+          container.className = 'win-tracker';
+          const battleArea = document.querySelector('.battle-area') || document.getElementById('battle-screen');
+          if (battleArea) battleArea.insertBefore(container, battleArea.firstChild);
+        }
+        const pDom = Math.max(0, p.dominationTurns || 0);
+        const eDom = Math.max(0, e.dominationTurns || 0);
+        const pFat = Math.max(0, p.fatigueTurns || 0);
+        const eFat = Math.max(0, e.fatigueTurns || 0);
+        const turnLeft = Math.max(0, this.game.maxTurns - p.turn);
+        container.innerHTML = `
+          <span class="wt-turn">Turn <span>${p.turn}</span>/${this.game.maxTurns}</span>
+          <span class="wt-domination">Dom <span>${pDom}</span>vs<span>${eDom}</span>/3</span>
+          <span class="wt-timeout">⏱ <span>${turnLeft}</span></span>
+          ${pFat > 0 || eFat > 0 ? `<span class="wt-fatigue">Fatigue <span>${pFat}v${eFat}</span></span>` : ''}
+        `;
+      },
+
+      playBattleCard(cardId) {
+        // Click-to-play fallback (drag-drop is the primary method)
+        if (!this.game || this.game.currentPlayer !== this.game.player) return;
+        if (this.game.phase !== 'main') return;
+        var card = this.game.player.hand.find(function(c) { return c.instanceId === cardId || c.id === cardId; });
+        if (!card) return;
+        var cost = this.game.getEffectiveCost(this.game.player, card);
+        if (this.game.player.power < cost) { audio.play('error'); return; }
+        var slot = this.game.findEmptySlot(this.game.player, card.type);
+        if (!slot) { audio.play('error'); return; }
+        var success = this.game.playCard(this.game.player, card, slot);
+        if (success) {
+          audio.play('play');
+          this.renderBattle();
+        }
+      },
+
+      selectBattleAttacker(cardId) {
+        if (!this.game || this.game.currentPlayer !== this.game.player) return;
+        if (this.game.phase !== 'main') return;
+        const attacker = this.game.player.field.battle.find(c => c && (c.instanceId === cardId || c.id === cardId));
+        if (!attacker) return;
+        if (attacker.justPlayed && !attacker.canAttack) { audio.play('error'); return; }
+        if (attacker.attacksLeft !== undefined && attacker.attacksLeft <= 0) { audio.play('error'); return; }
+        // Toggle off if clicking the same attacker
+        if (this.selectedAttacker && (this.selectedAttacker.instanceId === attacker.instanceId)) {
+          this.selectedAttacker = null;
+          this.hideAttackArrow();
+          this.renderBattle();
+          return;
+        }
+        this.selectedAttacker = attacker;
+        audio.play('click');
+        this.renderBattle();
+        // Hearthstone-style arrow follows cursor from attacker
+        const self = this;
+        const srcEl = document.querySelector('[data-instance="' + (attacker.instanceId || attacker.id) + '"]');
+        if (this._arrowMoveFn) document.removeEventListener('mousemove', this._arrowMoveFn);
+        this._arrowMoveFn = function(e) { if (self.selectedAttacker && srcEl) self.showAttackArrow(srcEl, e.clientX, e.clientY); };
+        document.addEventListener('mousemove', this._arrowMoveFn);
+        // Temporary one-shot listener to deselect on clicking empty space
+        if (this._deselectFn) document.removeEventListener('mouseup', this._deselectFn);
+        this._deselectFn = function(e) {
+          if (!self.selectedAttacker) { document.removeEventListener('mouseup', self._deselectFn); self._deselectFn = null; return; }
+          var t = e.target;
+          var isBattleClick = false;
+          while (t) { if (t.classList && t.classList.contains('battle-slot-droppable')) { isBattleClick = true; break; } t = t.parentElement; }
+          if (isBattleClick) return;
+          // Only deselect if clicking a non-battle-slot area
+          setTimeout(function() {
+            if (self.selectedAttacker) { self.selectedAttacker = null; self.hideAttackArrow(); if (self._deselectFn) { document.removeEventListener('mouseup', self._deselectFn); self._deselectFn = null; } self.renderBattle(); }
+          }, 10);
+        };
+        document.addEventListener('mouseup', this._deselectFn);
+      },
+
+      selectBattleTarget(cardId) {
+        if (!this.game || !this.selectedAttacker) return;
+        const target = this.game.enemy.field.battle.find(c => c && (c.instanceId === cardId || c.id === cardId));
+        if (!target) return;
+        this.game.attack(this.game.player, this.selectedAttacker, target);
+        this.selectedAttacker = null;
+        this.hideAttackArrow();
+        this.renderBattle();
+        audio.play('attack');
+      },
+
+      attackEnemyBase() {
+        if (!this.game || !this.selectedAttacker) return;
+        if (this.game.currentPlayer !== this.game.player || this.game.phase !== 'main') return;
+        this.game.attack(this.game.player, this.selectedAttacker, this.game.enemy);
+        this.selectedAttacker = null;
+        this.hideAttackArrow();
+        this.renderBattle();
+        audio.play('attack');
+      },
+      activateOverclock(cardId) {
+        if (!this.game || this.game.currentPlayer !== this.game.player) return;
+        if (this.game.phase !== 'main') return;
+        const card = this.game.player.field.battle.find(c => c && (c.instanceId === cardId || c.id === cardId));
+        if (!card) return;
+        if (card.attacksLeft === undefined || card.attacksLeft <= 0) { audio.play('error'); return; }
+        if (card._overclockExtraAttack) { audio.play('error'); return; }
+        // Apply Overclock: grant extra attack
+        card.attacksPerTurn = Math.min(3, (card.attacksPerTurn || 1) + 1);
+        card.attacksLeft = (card.attacksLeft || 0) + 1;
+        card._overclockExtraAttack = true;
+        this.game.log(card.name + ' Overclock activated! +1 attack!');
+        if (typeof SynthVFX !== 'undefined') {
+          const el = document.querySelector('[data-instance="' + cardId + '"]');
+          if (el) SynthVFX.showKeywordGlow(el, 'overclock');
+        }
+        audio.play('play');
+        this.renderBattle();
+      },
+
+
+      // ===== TURN CONTROL =====
+      endTurn() {
+        if (!this.game || this.game.currentPlayer !== this.game.player) return;
+        this.stopPhaseTimer();
+        const btn = document.getElementById('turn-timer-btn');
+        if (btn) { btn.classList.add('activating'); setTimeout(() => btn.classList.remove('activating'), 400); }
+        this.game.endTurn(this.game.player);
+        this.renderBattle();
+        audio.play('click');
+      },
+
+      forfeitBattle() {
+        if (!this.game) return;
+        this.cleanupBattleDrag();
+        this.confirmModal('Forfeit this battle?', function() { ui._forfeitConfirmed(); });
+      },
+      _forfeitConfirmed() {
+        if (!ui.game) return;
+        ui.cleanupBattleDrag();
+        ui.game.endGame(ui.game.enemy);
+        ui.showResult(false);
+      },
+
+      quickBattle() {
+        // Jump straight into a battle — no fields, no coin flip, just fight
+        if (this.deck.length === 0) {
+          // No deck yet: pick a random Character and its starter deck rather than dropping
+          // straight into the colorless-only preset — Quick Battle should still exercise
+          // the Character system by default.
+          if (typeof CHARACTER_LIST !== 'undefined' && !this.selectedCharacter) {
+            this.selectCharacterSilently(CHARACTER_LIST[Math.floor(Math.random() * CHARACTER_LIST.length)]);
+          } else {
+            this.loadPresetByArchetype(Object.keys(this.PRESET_ARCHETYPES)[6]);
+          }
+        }
+        if (this.deck.length < 40) { this.toast('Your deck needs 40 cards!', 'warning'); return; }
+        this.selectedBattleground = null;
+        this.selectedOpponent = ['aggro','control','tank','balanced'][Math.floor(Math.random()*4)];
+        this.gameMode = 'bot';
+        this.launchBattle();
+      },
+
+      // ===== SHOWDOWN + COIN FLIP =====
+      showShowdown() {
+        var self = this;
+        this.showScreen('showdown');
+
+        // Player info
+        var playerDeckForShow = this.getSelectedDeck();
+        document.getElementById('showdown-player-name').textContent = 'Commander';
+        document.getElementById('showdown-player-rank').textContent = this.playerRank || 'Bronze I';
+        document.getElementById('showdown-player-count').textContent = playerDeckForShow.length;
+        document.getElementById('showdown-player-deck').textContent = this.selectedDeckName || this.savedDeckName || 'My Deck';
+        this.generateAvatar('showdown-player-avatar', 1, false);
+
+        // Battleground name
+        document.getElementById('showdown-bg-name').textContent = this.selectedBattleground ? 
+          this.selectedBattleground.icon + ' ' + this.selectedBattleground.name : '';
+        document.getElementById('showdown-bg-name').style.color = this.selectedBattleground ? 
+          this.selectedBattleground.color : '#fff';
+
+        // Opponent
+        var oppNames = {aggro:'BlitzWarrior',control:'MindWeaver',tank:'IronWarden',chaos:'EntropyLord',
+          random:['CyberWarlord','NeonKnight','VaultSeeker'][Math.floor(Math.random()*3)]};
+        var style = this.selectedOpponent || 'random';
+        var oppName = typeof oppNames[style]==='string' ? oppNames[style] : oppNames.random;
+        var oppRanks = ['Bronze II','Silver III','Silver I','Gold IV','Gold II','Platinum V'];
+        document.getElementById('showdown-opponent-name').textContent = oppName;
+        document.getElementById('showdown-opponent-rank').textContent = oppRanks[Math.floor(Math.random()*oppRanks.length)];
+        document.getElementById('showdown-opponent-count').textContent = '40';
+        document.getElementById('showdown-opponent-deck').textContent = 
+          style==='aggro'?'Rush Deck':style==='control'?'Control Deck':style==='tank'?'Fortress Deck':'Chaos Deck';
+        this.generateAvatar('showdown-opponent-avatar', 2, true);
+
+        // Coin flip
+        var statusEl = document.getElementById('showdown-status');
+        var coin = document.getElementById('showdown-coin');
+        document.getElementById('showdown-fight-btn').style.display = 'none';
+        statusEl.textContent = 'Opponent found!';
+        statusEl.style.display = 'block';
+        coin.classList.remove('flipping','heads','tails');
+        coin.style.display = 'flex';
+
+        setTimeout(function(){
+          statusEl.textContent = 'Coin flip...';
+          coin.classList.add('flipping');
+          audio.play('click');
+          var playerWins = Math.random() > 0.5;
+          self.coinWinner = playerWins ? 'player' : 'enemy';
+          setTimeout(function(){
+            coin.classList.remove('flipping');
+            coin.classList.add(playerWins?'heads':'tails');
+            statusEl.textContent = (playerWins?'You':oppName)+' goes first!';
+            document.getElementById('showdown-fight-btn').style.display = 'inline-block';
+            audio.play(playerWins?'reveal':'peek');
+          },1500);
+        },800);
+      },
+
+      launchBattle() {
+        var playerDeck = this.getSelectedDeck();
+        var enemyDeck = this.getOpponentDeckForMode();
+        this.game = new GameEngine();
+        this.game.player.character = this.selectedCharacter || null;
+        this.game.enemy.character = this.getEnemyCharacter();
+        var self = this;
+
+        this.game.on('draw', function(data){
+          audio.play('draw');
+          if (data && data.player === self.game.player) self.renderBattle();
+        });
+        this.game.on('playCard', function(data){
+          audio.play('play');
+          if (data && data.card) {
+            // VFX-enhanced card play
+            if (typeof SynthVFX !== 'undefined') {
+              setTimeout(function(){
+                const el = document.querySelector('[data-instance="' + data.card.instanceId + '"]');
+                if (el) {
+                  SynthVFX.animateCardPlay(el);
+                  var color = TEAM_COLORS[data.card.team] || '#00d9ff';
+                  var rect = el.getBoundingClientRect();
+                  SynthVFX.spawnParticles(rect.left + rect.width/2, rect.bottom, { count: 8, color: color, type: 'star', life: 30, gravity: -0.04 });
+                }
+              }, 10);
+            }
+            // Fallback animation
+            setTimeout(function(){
+              const el = document.querySelector('[data-instance="' + data.card.instanceId + '"]');
+              if (el) {
+                el.setAttribute('data-rarity', data.card.rarity || 'common');
+                el.classList.add('card-play-anim');
+                setTimeout(function(){ el.classList.remove('card-play-anim'); }, 800);
+              }
+            }, 50);
+          }
+          self.renderBattle();
+        });
+        this.game.on('attack', function(data){
+          audio.play('attack');
+          // Trigger WebGL shockwave at target position
+          if (data && data.damage > 0 && typeof SynthShaderEngine !== 'undefined') {
+            var targetEl = data.target ? document.querySelector('[data-instance="' + (data.target.instanceId || data.target.id) + '"]') : null;
+            if (targetEl) {
+              var rect = targetEl.getBoundingClientRect();
+              var x = (rect.left + rect.width / 2) / window.innerWidth;
+              var y = (rect.top + rect.height / 2) / window.innerHeight;
+              SynthShaderEngine.addShockwave(x, y, data.damage, data.damage >= 7);
+            }
+          }
+          if (data && data.attacker) {
+            const el = document.querySelector('[data-instance="' + data.attacker.instanceId + '"]');
+            if (el) {
+              el.setAttribute('data-rarity', data.attacker.rarity || 'common');
+              el.classList.add('card-attack-anim');
+              setTimeout(function(){ el.classList.remove('card-attack-anim'); }, 650);
+            }
+          }
+          if (data && data.damage > 0) {
+            self.showDamageFloat(data.target, data.damage, false);
+          }
+          setTimeout(function(){ self.renderBattle(); }, 300);
+        });
+        this.game.on('damage', function(data){
+          if (data.type === 'base') {
+            self.createParticles(data.target === self.game.player ? 'player' : 'enemy');
+            // Shockwave at the damaged player's HP orb
+            if (typeof SynthShaderEngine !== 'undefined' && data.amount > 0) {
+              var hpEl = data.target === self.game.player
+                ? document.getElementById('player-hp')
+                : document.getElementById('enemy-hp');
+              if (hpEl) {
+                var rect = hpEl.getBoundingClientRect();
+                var x = (rect.left + rect.width / 2) / window.innerWidth;
+                var y = (rect.top + rect.height / 2) / window.innerHeight;
+                SynthShaderEngine.addShockwave(x, y, data.amount, data.amount >= 6);
+              }
+            }
+          }
+          if (data.amount > 0) self.showDamageFloat(data.target, data.amount, false);
+          audio.play('damage');
+          self.renderBattle();
+        });
+        this.game.on('destroy', function(data){
+          if (data && data.card) {
+            const el = document.querySelector('[data-instance="' + data.card.instanceId + '"]');
+            if (el) {
+              el.setAttribute('data-rarity', data.card.rarity || 'common');
+              el.classList.add('card-destroy-anim');
+            }
+          }
+          setTimeout(function(){ self.renderBattle(); }, 600);
+        });
+        this.game.on('trapTrigger', function(data){
+          audio.play('trap');
+          if (data && data.damage > 0) self.showDamageFloat(data.attacker, data.damage, false);
+          self.renderBattle();
+        });
+        this.game.on('combo', function(data){
+          audio.play('combo');
+          if (data && data.cards) {
+            data.cards.forEach(function(c){
+              const el = document.querySelector('[data-instance="' + c.instanceId + '"]');
+              if (el) { el.classList.add('combo-flash'); setTimeout(function(){ el.classList.remove('combo-flash'); }, 900); }
+            });
+          }
+          self.renderBattle();
+        });
+        this.game.on('teamSynergy', function(data){
+          self.showSynergyPopup(data);
+          audio.play('combo');
+          self.renderBattle();
+        });
+        this.game.on('victory', function(e){ setTimeout(function(){ self.handleVictory(); }, 500); });
+        this.game.on('defeat', function(e){ setTimeout(function(){ self.handleDefeat(); }, 500); });
+        this.game.on('gameDraw', function(){ setTimeout(function(){ self.showResult(null); }, 500); });
+        this.game.on('log', function(){ self.updateBattleLog(); });
+        this.game.on('spellEffect', function(){ audio.play('spell'); self.renderBattle(); });
+        this.game.on('turnStart', function(data){
+          self.renderBattle();
+          if (self.game && self.game.currentPlayer === self.game.player && self.game.phase !== 'bank') {
+            self.startPhaseTimer(45, 'Combat Phase', () => self.endTurn());
+            self._removeAIThinking();
+          } else if (self.game && self.game.currentPlayer === self.game.enemy) {
+            self._showAIThinking();
+          }
+        });
+        this.game.on('turnEnd', function(){ self.stopPhaseTimer(); self._removeAIThinking(); self.renderBattle(); });
+        this.game.on('bankStart', function(data){
+          self.renderBattle();
+          if (data && data.player === self.game.player) {
+            self.startBankPhase(data);
+          }
+        });
+        this.game.on('bankEnd', function(){ self.renderBattle(); });
+        this.game.on('dangerEvent', function(data){
+          // Out-There-Omega style full-screen danger flash
+          audio.play('spell');
+          const arena = document.getElementById('battle-arena');
+          if (arena) {
+            arena.classList.add('danger-flash');
+            setTimeout(function(){ arena.classList.remove('danger-flash'); }, 900);
+          }
+          self.showDamageFloat(null, 'DANGER', true);
+          // Center-screen danger banner
+          const banner = document.createElement('div');
+          banner.className = 'danger-banner';
+          banner.textContent = data && data.event ? data.event.name + ' — ' + data.event.desc : 'DANGER';
+          document.body.appendChild(banner);
+          setTimeout(function(){ banner.remove(); }, 1600);
+          self.renderBattle();
+        });
+        this.game.on('buyCard', function(data){
+          if (data && data.player === self.game.player) {
+            self.refreshBankPhase();
+          }
+          self.renderBattle();
+        });
+
+        var finalDeck = playerDeck && playerDeck.length >= 10 ? playerDeck : this.deck;
+        // Set AI style based on opponent selection
+        if (this.game.enemy) {
+          this.game.enemy.aiStyle = this.selectedOpponent || 'random';
+          if (this.game.enemy.aiStyle === 'random') {
+            this.game.enemy.aiStyle = ['aggro','control','tank','balanced'][Math.floor(Math.random()*4)];
+          }
+        }
+        // Pass battleground rules toggle to engine
+        this.game.applyBGRules = this.applyBGRules !== false;
+        this.game.startBattle(finalDeck, enemyDeck, '1v1', this.selectedBattleground);
+        if (this.coinWinner === 'enemy') this.game.startTurn(this.game.enemy);
+        this.showScreen('battle');
+
+        // Apply battleground animated background
+        var arena = document.getElementById('battle-arena');
+        if (arena && self.selectedBattleground && self.selectedBattleground.biome) {
+          arena.className = 'battle-arena bg-' + self.selectedBattleground.biome;
+        } else if (arena) {
+          arena.className = 'battle-arena';
+        }
+
+        this.initBattleDrag();
+        audio.play('play');
+      },
+
+      doCombatAnimation(attackerEl, targetEl) {
+        if (attackerEl) {
+          attackerEl.classList.add('card-attacking');
+          setTimeout(() => attackerEl.classList.remove('card-attacking'), 500);
+        }
+        if (targetEl) {
+          targetEl.classList.add('card-hit');
+          setTimeout(() => targetEl.classList.remove('card-hit'), 400);
+        }
+      },
+
+      showDamageFloat(target, amount, isHeal) {
+        if (!target) return;
+        var isPlayer = target === this.game.player;
+        var anchor = document.getElementById(isPlayer ? 'player-hp' : 'enemy-hp');
+        if (!anchor) return;
+        var el = document.createElement('div');
+        var sizeClass = amount >= 8 ? 'dmg-critical' : amount >= 4 ? 'dmg-high' : '';
+        el.className = 'dmg-float ' + sizeClass + (isHeal ? ' dmg-heal' : '');
+        el.style.color = isHeal ? '#05ffa1' : amount >= 6 ? '#ff2a6d' : '#fff';
+        el.textContent = (isHeal ? '+' : '-') + amount;
+        var rect = anchor.getBoundingClientRect();
+        el.style.left = (rect.left + rect.width / 2 - 15) + 'px';
+        el.style.top = (rect.top + window.scrollY - 10) + 'px';
+        document.body.appendChild(el);
+        setTimeout(function(){ el.remove(); }, 1200);
+      },
+
+      showSynergyPopup(data) {
+        var teamColors = {
+          'Overchargers':'#ff2a6d','Fortress':'#05ffa1','Control':'#00d9ff',
+          'Synergy':'#bc13fe','Economy':'#ffd700','Chaos':'#ff6b35',
+          'Synth Legends':'#00f5ff','Titanborn':'#ff8c00'
+        };
+        var color = teamColors[data.team] || '#ffd700';
+        var popup = document.createElement('div');
+        popup.className = 'synergy-popup';
+        popup.style.setProperty('--popup-color', color);
+        popup.innerHTML = '<h3>⚡ ' + data.team + ' Synergy!</h3><p>' + data.count + ' cards active — bonus triggered!</p>';
+        document.body.appendChild(popup);
+        setTimeout(function(){
+          popup.style.opacity = '0';
+          popup.style.transition = 'opacity 0.4s';
+          setTimeout(function(){ popup.remove(); }, 500);
+        }, 2000);
+      },
+
+      handleVictory() {
+        this.playerWins = (this.playerWins || 0) + 1;
+        this.cleanupBattleDrag();
+        this.stopTimerLoop();
+        if (this.gameMode === 'arcade') {
+          this.arcadeRound++;
+          if (this.arcadeRound > this.arcadeBest) this.arcadeBest = this.arcadeRound;
+        }
+        this.showResult(true);
+      },
+
+      handleDefeat() {
+        this.cleanupBattleDrag();
+        this.stopTimerLoop();
+        if (this.gameMode === 'arcade') {
+          this.arcadeRound = 1;
+        }
+        this.showResult(false);
+      },
+
+      calculateRank() {
+        var wins = this.playerWins || 0;
+        if (wins >= 30) return 'Mythic';
+        if (wins >= 20) return 'Diamond I';
+        if (wins >= 15) return 'Platinum I';
+        if (wins >= 10) return 'Gold I';
+        if (wins >= 6)  return 'Silver I';
+        if (wins >= 3)  return 'Bronze II';
+        return 'Bronze I';
+      },
+
+
+      toggleBattleLog() {
+        const modal = document.getElementById('battlelog-modal');
+        modal.classList.toggle('active');
+        if (modal.classList.contains('active')) this.updateBattleLog();
+      },
+
+      updateBattleLog() {
+        const content = document.getElementById('battle-log-content');
+        if (!this.game) return;
+        // Use battleHistory if available, fallback to plain log
+        var history = this.game.getBattleHistory();
+        var logs;
+        if (history && history.length > 0) {
+          logs = history.slice(-80).reverse();
+        } else {
+          logs = this.game.getBattleLog().slice(-80).reverse();
+          var isPlain = true;
+        }
+        var html = '';
+        // Add small filter bar
+        html += '<div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap;">';
+        html += '<button class="log-filter-btn active" data-filter="all" onclick="ui._logFilter=\'all\';ui.updateBattleLog()">All</button>';
+        html += '<button class="log-filter-btn" data-filter="buy" onclick="ui._logFilter=\'buy\';ui.updateBattleLog()">🛒 Buy</button>';
+        html += '<button class="log-filter-btn" data-filter="play" onclick="ui._logFilter=\'play\';ui.updateBattleLog()">▶️ Play</button>';
+        html += '<button class="log-filter-btn" data-filter="attack" onclick="ui._logFilter=\'attack\';ui.updateBattleLog()">⚔️ Attack</button>';
+        html += '<button class="log-filter-btn" data-filter="danger" onclick="ui._logFilter=\'danger\';ui.updateBattleLog()">🌌 Danger</button>';
+        html += '<button class="log-filter-btn" data-filter="gameEnd" onclick="ui._logFilter=\'gameEnd\';ui.updateBattleLog()">🏆 Result</button>';
+        html += '</div>';
+        this._logFilter = this._logFilter || 'all';
+        // Update active filter styling
+        html = html.replace('data-filter="' + this._logFilter + '"', 'data-filter="' + this._logFilter + '" style="background:var(--accent-cyan);color:#000;font-weight:700;"');
+        
+        for (var li = 0; li < logs.length; li++) {
+          var e = logs[li];
+          var icon = '', cls = '', msg = '';
+          var ts = '';
+          if (e.time && this.game && this.game.gameStartTime) {
+            var secs = Math.floor((e.time - this.game.gameStartTime) / 1000);
+            var m = Math.floor(secs / 60);
+            var s = secs % 60;
+            ts = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+          } else if (e.turn) {
+            ts = 'T' + e.turn;
+          }
+          if (e.type === 'buy') { icon = '🛒'; cls = 'log-buy'; msg = (e.data && e.data.player === 'player' ? 'You' : 'Enemy') + ' buy ' + (e.data && e.data.card ? e.data.card : '') + ' [' + (e.data && e.data.cost !== undefined ? '♢' + e.data.cost : '') + ']'; }
+          else if (e.type === 'play') { icon = '▶️'; cls = 'log-play'; msg = (e.data && e.data.player === 'player' ? 'You' : 'Enemy') + ' play ' + (e.data && e.data.card ? e.data.card : '') + ' (' + (e.data && e.data.type || '') + ')' + (e.data && e.data.zone ? ' → ' + e.data.zone : ''); }
+          else if (e.type === 'attack') { icon = '⚔️'; cls = 'log-atk'; msg = (e.data && e.data.attacker || '?') + ' → ' + (e.data && e.data.target || 'base') + ' (' + (e.data && e.data.damage || 0) + ' dmg)'; }
+          else if (e.type === 'damage') { icon = '💥'; cls = 'log-dmg'; msg = (e.data && e.data.amount || 0) + ' damage' + (e.data && e.data.type ? ' [' + e.data.type + ']' : ''); }
+          else if (e.type === 'skill' || e.type === 'ability') { icon = '⚡'; cls = 'log-ability'; msg = e.data && e.data.type ? e.data.type : 'Ability'; }
+          else if (e.type === 'structureDamage' || e.type === 'structureDestroyed') { icon = '🏗️'; cls = 'log-struct'; msg = e.type === 'structureDestroyed' ? 'Structure destroyed' : 'Structure hit for ' + (e.data && e.data.damage || 0); }
+          else if (e.type === 'dangerEvent') { icon = '🌌'; cls = 'log-danger'; msg = e.data && e.data.event ? e.data.event.name : 'Danger event'; }
+          else if (e.type === 'gameEnd') { icon = '🏆'; cls = 'log-win'; msg = e.data && e.data.winner ? e.data.winner.toUpperCase() + ' wins! [' + (e.data.condition || '') + ']' : 'Game over'; }
+          else if (e.type === 'battleStart') { icon = '🏁'; cls = 'log-start'; msg = 'Battle started' + (e.data && e.data.battleground ? ' at ' + e.data.battleground : ''); }
+          else if (e.type === 'teamSynergy') { icon = '🔗'; cls = 'log-synergy'; msg = (e.data && e.data.team || '') + ' x' + (e.data && e.data.count || 0) + (e.data && e.data.full ? ' FULL' : ' ally'); }
+          else if (e.type === 'turnStart') { icon = '▶️'; cls = 'log-play'; msg = 'T' + (e.data && e.data.turn || '') + ' ' + (e.data && e.data.player || '') + ' — Mana ' + (e.data && e.data.maxMana || ''); }
+          else if (e.type === 'bankEnd') { icon = '💰'; cls = 'log-play'; msg = (e.data && e.data.player || '') + ' bank ends (' + (e.data && e.data.manaSpent || 0) + ' mana' + (e.data && e.data.manaBurn ? ', burn ' + e.data.manaBurn : '') + ')'; }
+          else if (e.type === 'structureDamage') { icon = '🏗️'; cls = 'log-struct'; msg = (e.data && e.data.structure || 'Struct') + ' hit ' + (e.data && e.data.damage || 0) + ' (' + (e.data && e.data.remaining || 0) + ' HP)'; }
+          else if (e.type === 'structureDestroyed') { icon = '💥'; cls = 'log-struct'; msg = (e.data && e.data.structure || '') + ' destroyed!'; }
+          else if (e.type === 'trapTrigger') { icon = '💣'; cls = 'log-danger'; msg = 'Trap ' + (e.data && e.data.trap || '') + ' → ' + (e.data && e.data.target || '') + ' (' + (e.data && e.data.damage || 0) + ')'; }
+          else if (e.type === 'combo') { icon = '🔗'; cls = 'log-synergy'; msg = (e.data && e.data.type || '') + ' combo!'; }
+          else {
+            msg = e.message || (e.data ? e.data.card || e.data.message || '' : '') || '';
+            icon = /DANGER/.test(msg) ? '🌌' : /WINS|VICTORY/.test(msg) ? '🏆' : /destroyed|hits|attacks/.test(msg) ? '⚔️' : /buys/.test(msg) ? '🛒' : /plays|casts/.test(msg) ? '▶️' : '📋';
+          }
+          if (!msg) msg = e.message || '';
+          
+          // Filter
+          if (this._logFilter !== 'all') {
+            var filterTypes = { buy: ['buy'], play: ['play','spellEffect'], attack: ['attack','damage','combatHit','combatCounter'], danger: ['dangerEvent'], gameEnd: ['gameEnd','battleStart','victory','defeat'] };
+            var matchTypes = filterTypes[this._logFilter] || [];
+            if (matchTypes.indexOf(e.type) < 0) continue;
+          }
+          
+          html += '<div class="log-entry ' + cls + '"><span class="log-icon">' + icon + '</span><span class="log-ts">' + ts + '</span><span class="log-msg">' + msg + '</span></div>';
+        }
+        content.innerHTML = html;
+        content.scrollTop = 0;
+      },
+
+      showResult(victory) {
+        const overlay = document.getElementById('result-overlay');
+        const title = document.getElementById('result-title');
+        const msg = document.getElementById('result-message');
+
+        // Get detailed match stats from the game engine
+        var matchStats = this.game ? this.game.getMatchStats() : {};
+        var pStats = matchStats.player || {};
+        var eStats = matchStats.enemy || {};
+
+        // Win condition label
+        const condition = this.game ? this.game.winCondition : null;
+        const conditionLabels = {
+          annihilation: '⚔️ ANNIHILATION',
+          domination: '🏛️ DOMINATION',
+          exodus: '📦 EXODUS',
+          timeout: '⏰ TIME LIMIT',
+          combo: '🔗 COMBO VICTORY',
+          draw: '🤝 DRAW'
+        };
+        const conditionHtml = condition && conditionLabels[condition]
+          ? `<div><span class="win-condition-label">${conditionLabels[condition]}</span></div>`
+          : '';
+
+        const turns = matchStats.turns || 0;
+        const newRank = this.calculateRank();
+        this.playerRank = newRank;
+
+        if (victory === null) {
+          title.textContent = 'DRAW'; title.className = 'result-title-draw';
+          msg.innerHTML = 'A perfectly matched battle.';
+          audio.play('click');
+        } else if (victory) {
+          this.playerWins = (this.playerWins || 0) + 1;
+          const credits = 50 + this.playerWins * 10;
+          title.textContent = 'VICTORY'; title.className = 'result-title-victory';
+          msg.innerHTML = 'You have conquered the battlefield!';
+          audio.play('victory');
+          // Populate stat cards
+          this._populateResultStats(matchStats, credits, newRank, true);
+        } else {
+          title.textContent = 'DEFEAT'; title.className = 'result-title-defeat';
+          msg.innerHTML = 'Your forces have been scattered.';
+          audio.play('defeat');
+          this._populateResultStats(matchStats, 0, newRank, false);
+        }
+
+        // Show win condition badge
+        var wcEl = document.getElementById('result-win-condition');
+        if (wcEl) wcEl.innerHTML = conditionHtml;
+
+        // Show battleground name
+        var bgEl = document.getElementById('result-battleground-name');
+        if (bgEl) bgEl.textContent = matchStats.battleground || 'Standard';
+
+        // Show opponent name
+        var oppEl = document.getElementById('result-opp-name');
+        if (oppEl && this.game && this.game.enemy) oppEl.textContent = this.game.enemy.name;
+
+        var stats = {
+          playerHp: pStats.hp || 0, maxHp: pStats.maxHp || 30, turns: turns,
+          battleground: this.game && this.game.battleground ? this.game.battleground.id : null,
+          spells: pStats.spellsCast || 0,
+          creatures: pStats.creaturesLost || 0,
+          traps: 0,
+          combos: pStats.combosTriggered || 0,
+          damage: pStats.damageDealt || 0
+        };
+        leaderboard.onBattleEnd(victory);
+        var unlocked = achievements.onBattleEnd(victory, stats);
+        quests.updateProgress('win', victory ? 1 : 0);
+        if (unlocked.length > 0) {
+          var unlockEl = document.getElementById('result-achievements');
+          if (unlockEl) unlockEl.innerHTML = '🏆 Unlocked: ' + unlocked.map(function(a){return a.name}).join(', ');
+        }
+        overlay.classList.add('active');
+        overlay.style.display = 'flex';
+      },
+
+      _populateResultStats(matchStats, credits, rank, isVictory) {
+        var p = matchStats.player || {};
+        var e = matchStats.enemy || {};
+        var setVal = function(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
+        setVal('result-turns-played', matchStats.turns || 0);
+        setVal('result-damage-dealt', p.damageDealt || 0);
+        setVal('result-damage-taken', p.damageTaken || 0);
+        setVal('result-cards-played', p.cardsPlayed || 0);
+        setVal('result-creatures-killed', p.creaturesKilled || 0);
+        setVal('result-spells-cast', p.spellsCast || 0);
+        setVal('result-combos-triggered', p.combosTriggered || 0);
+        setVal('result-credits-earned', isVictory ? '+' + credits : '0');
+        setVal('result-rank-display', rank);
+        setVal('result-opp-name', this.game ? this.game.enemy.name : 'Opponent');
+        setVal('result-battleground-name', matchStats.battleground || 'Standard');
+        // Show last 5 battle log events in history section
+        var histEl = document.getElementById('result-battle-history');
+        if (histEl && this.game) {
+          var logs = this.game.getBattleLog().slice(-8).reverse();
+          histEl.innerHTML = logs.map(function(l) {
+            return '<div class="result-history-item"><span class="result-history-turn">T' + (l.turn||0) + '</span> ' + l.message + '</div>';
+          }).join('');
+        }
+      },
+
+      hideResult() {
+        var overlay = document.getElementById('result-overlay');
+        overlay.classList.remove('active');
+        overlay.style.display = 'none';
+        this.cleanupBattleDrag();
+      },
+
+// ===== CHAT =====
+sendChat() {
+const input = document.getElementById('chat-input');
+const msg = input.value.trim();
+if (!msg) return;
+social.sendMessage('global', this.game?.player?.name || 'Commander', msg);
+input.value = '';
+this.renderChat();
+audio.play('click');
+},
+
+sendFriendChat() {
+const input = document.getElementById('friends-chat-input');
+const msg = input.value.trim();
+if (!msg) return;
+social.sendMessage('global', 'Commander', msg);
+input.value = '';
+this.renderChat();
+audio.play('click');
+},
+
+renderChat() {
+const messages = social.getMessages('global');
+const chatHtml = messages.slice(-50).map(m => {
+const isSystem = m.sender === 'System';
+return `<div class="chat-message ${isSystem ? 'system' : ''}">
+${!isSystem ? '<span class="sender">' + m.sender + ':</span>' : ''}
+${m.message}
+</div>`;
+}).join('');
+
+const chatMsgEl = document.getElementById('chat-messages');
+if (chatMsgEl) { chatMsgEl.innerHTML = chatHtml; chatMsgEl.scrollTop = chatMsgEl.scrollHeight; }
+const friendsChatEl = document.getElementById('friends-chat');
+if (friendsChatEl) { friendsChatEl.innerHTML = chatHtml; friendsChatEl.scrollTop = friendsChatEl.scrollHeight; }
+},
+
+// ===== FRIENDS =====
+renderFriends() {
+const container = document.getElementById('friends-list');
+container.innerHTML = social.friends.map(f => `
+<div class="friend-item">
+<div class="friend-info">
+<div class="friend-avatar">${f.avatar}</div>
+<div>
+<div class="friend-name">${f.name}</div>
+<div class="friend-status ${f.status}">${f.status} • ${f.rank} • ${f.wins} wins</div>
+</div>
+</div>
+<div class="friend-actions">
+<button onclick="ui.challengeFriend('${f.id}')">Challenge</button>
+<button onclick="ui.removeFriend('${f.id}')">Remove</button>
+</div>
+</div>
+`).join('');
+},
+
+addFriend() {
+const name = document.getElementById('add-friend-input').value.trim();
+if (!name) return;
+social.addFriend(name);
+this.renderFriends();
+document.getElementById('add-friend-input').value = '';
+audio.play('click');
+},
+
+removeFriend(id) {
+social.removeFriend(id);
+this.renderFriends();
+audio.play('click');
+},
+
+challengeFriend(id) {
+const friend = social.friends.find(f => f.id === id);
+alert('Challenge sent to ' + friend.name + '! (In a real game, this would start a match)');
+audio.play('click');
+},
+
+// ===== SETTINGS =====
+updateAudio(type, value) {
+audio.setVolume(type, value / 100);
+},
+
+toggleMute() {
+const toggle = document.getElementById('mute-toggle');
+toggle.classList.toggle('active');
+const muted = toggle.classList.contains('active');
+audio.setVolume('master', muted ? 0 : document.getElementById('master-volume').value / 100);
+},
+
+updateCardSize(value) {
+document.documentElement.style.setProperty('--card-scale', value / 100);
+},
+
+updateAnimSpeed(value) {
+this.animSpeed = parseFloat(value);
+},
+
+toggleColorblind() {
+document.getElementById('colorblind-toggle').classList.toggle('active');
+document.body.classList.toggle('colorblind');
+},
+
+toggleContrast() {
+document.getElementById('contrast-toggle').classList.toggle('active');
+document.body.classList.toggle('high-contrast');
+},
+
+toggleSetting(element, key) {
+element.classList.toggle('active');
+this.settings[key] = element.classList.contains('active');
+},
+
+updatePrivacy(value) {
+this.settings.privacy = value;
+},
+
+selectCardBack(back) {
+this.selectedCardBack = back;
+audio.play('click');
+},
+
+resetData() {
+if (confirm('Are you sure? This will delete ALL saved progress!')) {
+localStorage.clear();
+location.reload();
+}
+},
+
+// ===== CARD DETAIL =====
+showCardDetail(cardId) {
+const card = ALL_CARDS.find(c => c.id === cardId);
+if (!card) return;
+const modal = document.getElementById('card-detail-modal');
+const content = document.getElementById('card-detail-content');
+content.innerHTML = this.renderCard(card);
+modal.classList.add('active');
+audio.play('click');
+},
+
+closeCardDetail() {
+document.getElementById('card-detail-modal').classList.remove('active');
+},
+
+// ===== ACHIEVEMENTS =====
+renderAchievements() {
+const container = document.getElementById('achievements-list');
+const progress = achievements.getProgress();
+
+let html = '<div style="text-align: center; margin-bottom: 30px;">';
+html += '<div style="font-size: 2rem; font-family: var(--font-title); color: var(--accent-gold);">';
+html += progress.unlocked + ' / ' + progress.total;
+html += '</div>';
+html += '<div style="color: var(--text-secondary);">' + progress.percent + '% Complete</div>';
+if (progress.next) {
+html += '<div style="margin-top: 10px; color: var(--accent-cyan);">Next: ' + progress.next.name + '</div>';
+}
+html += '</div>';
+
+html += achievements.achievements.map(a => `
+<div class="achievement-item ${a.unlocked ? 'unlocked' : ''}">
+<div class="achievement-icon">${a.unlocked ? '🏆' : '⚪'}</div>
+<div class="achievement-info">
+<div class="achievement-name">${a.name}</div>
+<div class="achievement-desc">${a.desc}</div>
+</div>
+<div class="achievement-reward">${a.reward} 💎</div>
+</div>
+`).join('');
+
+container.innerHTML = html;
+},
+
+// ===== LEADERBOARD =====
+renderLeaderboard() {
+const stats = leaderboard.getPlayerStats();
+const rank = leaderboard.calculatePlayerRank();
+const position = leaderboard.getPlayerPosition();
+const topPlayers = leaderboard.getTopPlayers(10);
+
+const statsContainer = document.getElementById('leaderboard-stats');
+statsContainer.innerHTML = `
+<div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 20px;">
+<div>
+<div style="font-size: 2rem; font-family: var(--font-title); color: var(--accent-gold);">${rank.rank}</div>
+<div style="color: var(--text-secondary); font-size: 0.9rem;">Your Rank</div>
+</div>
+<div>
+<div style="font-size: 2rem; font-family: var(--font-title); color: var(--accent-cyan);">${rank.rating}</div>
+<div style="color: var(--text-secondary); font-size: 0.9rem;">Rating</div>
+</div>
+<div>
+<div style="font-size: 2rem; font-family: var(--font-title); color: var(--accent-green);">${Math.round(rank.winRate * 100)}%</div>
+<div style="color: var(--text-secondary); font-size: 0.9rem;">Win Rate</div>
+</div>
+<div>
+<div style="font-size: 2rem; font-family: var(--font-title); color: var(--accent-purple);">#${position}</div>
+<div style="color: var(--text-secondary); font-size: 0.9rem;">Position</div>
+</div>
+</div>
+`;
+
+const listContainer = document.getElementById('leaderboard-list');
+listContainer.innerHTML = topPlayers.map((p, i) => `
+<div class="leaderboard-item ${p.id === 'player' ? 'player' : ''}">
+<div class="leaderboard-rank">#${i + 1}</div>
+<div class="leaderboard-avatar">${p.avatar}</div>
+<div class="leaderboard-info">
+<div class="leaderboard-name">${p.name}</div>
+<div class="leaderboard-title">${p.title || ''}</div>
+</div>
+<div class="leaderboard-rank-badge">${p.rank}</div>
+<div class="leaderboard-stats">
+<div>${p.wins}W / ${p.losses}L</div>
+<div style="color: var(--accent-cyan);">${p.rating} ELO</div>
+</div>
+</div>
+`).join('');
+},
+
+// ===== QUESTS =====
+renderQuests() {
+const progress = quests.getProgress();
+const activeQuests = quests.getActiveQuests();
+
+const progressContainer = document.getElementById('quests-progress');
+progressContainer.innerHTML = `
+<div style="font-size: 2rem; font-family: var(--font-title); color: var(--accent-gold);">${progress.completed}/${progress.total}</div>
+<div style="color: var(--text-secondary);">Quests Completed Today</div>
+<div style="margin-top: 10px; color: var(--accent-cyan);">${progress.percent}%</div>
+`;
+
+const listContainer = document.getElementById('quests-list');
+listContainer.innerHTML = activeQuests.map(q => `
+<div class="quest-item ${q.completed ? 'completed' : ''}">
+<div class="quest-info">
+<div class="quest-name">${q.name}</div>
+<div class="quest-desc">${q.desc}</div>
+<div class="quest-progress">
+<div class="quest-progress-bar"><div class="quest-progress-bar-inner" style="width: ${(q.current / q.target) * 100}%"></div></div>
+<span>${q.current}/${q.target}</span>
+</div>
+</div>
+<div class="quest-reward">
+<div>${q.reward} 💎</div>
+${q.completed && !q.claimed ? `<button class="menu-button" style="width: auto; padding: 8px 16px; font-size: 0.8rem; margin-top: 5px;" onclick="ui.claimQuest('${q.id}')">Claim</button>` : ''}
+${q.claimed ? '<span style="color: var(--accent-green);">Claimed</span>' : ''}
+</div>
+</div>
+`).join('');
+},
+
+claimQuest(questId) {
+const reward = quests.claimReward(questId);
+if (reward > 0) {
+this.player.credits += reward;
+audio.play('click');
+this.renderQuests();
+}
+},
+
+// ===== TOOLTIP =====
+showTooltip(element, cardId) {
+// During battle, look for the card instance in play for live stats
+var card = null;
+if (this.game && this.game.state === 'battle') {
+  const inst = element && element.dataset.instance;
+  if (inst) {
+    card = this._findCardInPlay(inst);
+  }
+  if (!card) card = ALL_CARDS.find(c => c.id === cardId);
+} else {
+  card = ALL_CARDS.find(c => c.id === cardId);
+}
+if (!card) return;
+const tooltip = document.getElementById('card-tooltip');
+var rarityBadge = card.rarity ? `<span class="tt-rarity tt-${card.rarity}">${card.rarity.toUpperCase()}</span>` : '';
+var typeBadge = card.type ? `<span class="tt-type tt-${card.type}">${card.type}</span>` : '';
+var teamBadge = card.team && card.team !== 'Neutral' ? `<span class="tt-team">${card.team}</span>` : '';
+var abilityHtml = card.ability ? `<p class="tt-ability">${card.ability}</p>` : '';
+var atk = card.currentAtk !== undefined ? card.currentAtk : card.attack || 0;
+var def = card.currentDef !== undefined ? card.currentDef : card.defense || 0;
+var hp = card.currentHp !== undefined ? card.currentHp : card.health || 0;
+var baseHp = card.health || 0;
+var inBattle = this.game && this.game.state === 'battle';
+tooltip.innerHTML = `
+<div class="tt-header">${rarityBadge}${typeBadge}${teamBadge}</div>
+<h4 class="tt-name">${card.icon || ''} ${card.name}</h4>
+${abilityHtml}
+<div class="tooltip-stats">
+  <span class="tt-stat">⚔️ ${atk}${inBattle ? '/' + (card.attack || 0) : ''}</span>
+  <span class="tt-stat">🛡️ ${def}${inBattle ? '/' + (card.defense || 0) : ''}</span>
+  ${card.health > 0 ? `<span class="tt-stat">❤️ ${hp}${inBattle ? '/' + baseHp : ''}</span>` : ''}
+  <span class="tt-stat">⚡ ${card.power || 0}</span>
+  ${card.speed ? `<span class="tt-stat">📈 ${card.speed}</span>` : ''}
+  ${card.production ? `<span class="tt-stat">🏭 ${card.production}</span>` : ''}
+  ${card.cost !== undefined ? `<span class="tt-stat">🪙 ${card.cost}</span>` : ''}
+</div>
+${card.desc ? `<p class="tt-desc">${card.desc}</p>` : ''}
+${inBattle ? `<p class="tt-combat-note">⚔️ Battle — live stats shown</p>` : ''}
+`;
+tooltip.classList.add('visible');
+const rect = element.getBoundingClientRect();
+const leftPos = rect.right + 10 > window.innerWidth - 220 ? rect.left - 210 : rect.right + 10;
+tooltip.style.left = leftPos + 'px';
+tooltip.style.top = Math.max(8, rect.top) + 'px';
+},
+
+_findCardInPlay(instanceId) {
+if (!this.game) return null;
+var p = this.game.player, e = this.game.enemy;
+var all = [
+  ...(p.field.battle || []), ...(e.field.battle || []),
+  ...(p.field.base || []), ...(e.field.base || []),
+  ...p.hand, ...e.hand
+];
+return all.find(function(c) { return c && (c.instanceId === instanceId || c.id === instanceId); });
+},
+
+hideTooltip() {
+const el = document.getElementById('card-tooltip');
+if (el) el.classList.remove('visible');
+},
+
+// ===== PARTICLES =====
+startParticleLoop() {
+const canvas = document.getElementById('particles');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+this.particles = [];
+
+const animate = () => {
+ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+this.particles = this.particles.filter(p => {
+p.x += p.vx;
+p.y += p.vy;
+p.life -= 0.02;
+p.size *= 0.98;
+
+if (p.life <= 0) return false;
+
+ctx.beginPath();
+ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+ctx.fillStyle = p.color;
+ctx.globalAlpha = p.life;
+ctx.fill();
+
+return true;
+});
+
+ctx.globalAlpha = 1;
+requestAnimationFrame(animate);
+};
+
+animate();
+
+window.addEventListener('resize', () => {
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+});
+},
+
+createParticles(target) {
+const anchorEl = document.getElementById(target === 'player' ? 'player-hp' : 'enemy-hp')
+  || document.getElementById(target === 'player' ? 'player-bar' : 'enemy-bar');
+if (!anchorEl) return;
+const rect = anchorEl.getBoundingClientRect();
+const centerX = rect.left + rect.width / 2;
+const centerY = rect.top + rect.height / 2;
+
+for (let i = 0; i < 20; i++) {
+this.particles.push({
+x: centerX,
+y: centerY,
+vx: (Math.random() - 0.5) * 10,
+vy: (Math.random() - 0.5) * 10,
+size: Math.random() * 5 + 2,
+life: 1,
+color: target === 'player' ? '#ff2a6d' : '#05ffa1'
+});
+}
+},
+
+// ===== TIMER =====
+startTimerLoop() {
+  if (this._timerLoopInterval) clearInterval(this._timerLoopInterval);
+  this._timerLoopInterval = setInterval(() => {
+if (this.game && this.game.state === 'battle' && this.game.phase !== 'end') {
+// Only count down for player turns; bot turns stay at 0
+if (this.game.currentPlayer === this.game.player) {
+this.game.turnTimer = Math.max(0, this.game.turnTimer - 1);
+}
+const timerEl = document.getElementById('turn-timer');
+if (timerEl) {
+timerEl.textContent = this.game.currentPlayer === this.game.player 
+? this.game.turnTimer + 's'
+: '⚡';
+if (this.game.turnTimer <= 5 && this.game.currentPlayer === this.game.player) {
+timerEl.style.color = 'var(--accent-red)';
+timerEl.style.animation = 'timerPulse 0.5s ease-in-out infinite';
+} else {
+timerEl.style.color = 'var(--accent-cyan)';
+timerEl.style.animation = 'none';
+}
+}
+
+if (this.game.turnTimer <= 0 && this.game.currentPlayer === this.game.player) {
+this.game.endTurn(this.game.player);
+this.renderBattle();
+}
+}
+}, 1000);
+},
+
+stopTimerLoop() {
+if (this._timerLoopInterval) { clearInterval(this._timerLoopInterval); this._timerLoopInterval = null; }
+},
+
+// ===== SAVE / LOAD =====
+loadSavedData() {
+try {
+const deckIds = JSON.parse(localStorage.getItem('synthopwars_deck'));
+if (deckIds) {
+this.deck = deckIds.map(id => ALL_CARDS.find(c => c.id === id)).filter(Boolean);
+}
+
+const savedDecks = JSON.parse(localStorage.getItem('synthopwars_saved_decks'));
+if (savedDecks) {
+this.savedDecks = savedDecks;
+}
+
+const settings = JSON.parse(localStorage.getItem('synthopwars_settings'));
+if (settings) {
+this.settings = { ...this.settings, ...settings };
+}
+
+const savedAudio = JSON.parse(localStorage.getItem('synthopwars_audio'));
+if (savedAudio) {
+audio.settings = savedAudio;
+audio.applySettings();
+}
+} catch (e) {
+console.log('No saved data found');
+}
+}
+};
+
+// ===== INITIALIZE =====
+document.addEventListener('DOMContentLoaded', () => {
+ui.init();
+});
+</script>
+<!-- ===== TUTORIAL ===== -->
+<div id="tutorial-screen" class="screen">
+<div class="screen-header">
+<button class="back-button" onclick="ui.showScreen('title')">← Back</button>
+<h2>How to Play</h2>
+</div>
+<div class="screen-content">
+<div class="lore-text">
+<h3>Quick Start</h3>
+<p>1. <strong>Build a Deck</strong> — Select 40 cards (min 20 creatures). Each card has a Power cost.</p>
+<p>2. <strong>Choose Battleground</strong> — Pick a Neo-City with special rules.</p>
+<p>3. <strong>Battle!</strong> — Draw cards, play creatures, attack the enemy Base.</p>
+
+<h3>Card Values</h3>
+<p>⚔️ <strong>Attack</strong> — Damage dealt to enemies</p>
+<p>🛡️ <strong>Defense</strong> — Damage absorbed before HP loss</p>
+<p>⚡ <strong>Power</strong> — Cost to play the card (you gain Power each turn)</p>
+<p>🏭 <strong>Production</strong> — Power generated per turn while on field</p>
+<p>📈 <strong>Speed</strong> — Attack order (higher goes first)</p>
+<p>🎯 <strong>Range</strong> — Melee (1), Ranged (2), Artillery (3)</p>
+
+<h3>Turn Phases</h3>
+<p><strong>Draw:</strong> Draw 1 card from your deck.</p>
+<p><strong>Power:</strong> Gain base Power (equal to turn number, max 12).</p>
+<p><strong>Main:</strong> Play creatures, spells, traps, structures. Costs Power.</p>
+<p><strong>Battle:</strong> Creatures attack. Higher Speed attacks first.</p>
+<p><strong>End:</strong> Excess cards discarded. Turn passes to opponent.</p>
+
+<h3>Victory Conditions</h3>
+<p>1. <strong>Annihilation:</strong> Reduce enemy Base HP to 0.</p>
+<p>2. <strong>Domination:</strong> Control 3 enemy structures for 3 turns.</p>
+<p>3. <strong>Exodus:</strong> Enemy runs out of cards (fatigue damage).</p>
+
+<h3>Deck Strategies</h3>
+<p><strong>Overcharge (Red):</strong> Fast, aggressive. Rush with low-cost creatures.</p>
+<p><strong>Fortress (Green):</strong> Defensive, healing. Build walls and outlast.</p>
+<p><strong>Control (Blue):</strong> Disruptive. Deny resources, counter spells.</p>
+<p><strong>Synergy (Purple):</strong> Buff stacking. Link creatures for combos.</p>
+<p><strong>Economy (Gold):</strong> Late game. Invest Power for massive returns.</p>
+<p><strong>Chaos (Black):</strong> Random. High variance, unpredictable outcomes.</p>
+
+<h3>Combo System</h3>
+<p>Cards with the same <strong>Combo ID</strong> activate synergies when multiple are on the field:</p>
+<p>• <strong>Twin Strike (Rush):</strong> 2+ Rush cards = +2 ATK each.</p>
+<p>• <strong>Link Sync (Link):</strong> 2+ Link cards = +1/+1 each.</p>
+<p>• <strong>Fortress Wall (Wall):</strong> 2+ Wall cards = +2 DEF each.</p>
+<p>• <strong>Gold Rush (Gold):</strong> 3+ Gold cards = +2 Power generation.</p>
+
+<h3>Battleground Effects</h3>
+<p>Each Neo-City changes the rules. Choose your battlefield wisely!</p>
+<p>• <strong>Dalian Block:</strong> Traps hidden. Spells cost +1.</p>
+<p>• <strong>Mashhad:</strong> Slow creatures cannot attack first turn.</p>
+<p>• <strong>London:</strong> Base row hidden until attacked.</p>
+<p>• <strong>Star Beijing:</strong> Spells cost -1. Creatures lose 1 HP/turn.</p>
+<p>• <strong>Lahore:</strong> Healing doubled. Structures regenerate.</p>
+<p>• <strong>Odessa:</strong> Max hand size = 7. Excess draws discarded.</p>
+</div>
+</div>
+</div>
+
+<!-- ===== ACHIEVEMENTS ===== -->
+<div id="achievements-screen" class="screen">
+<div class="screen-header">
+<button class="back-button" onclick="ui.showScreen('title')">← Back</button>
+<h2>Trophies</h2>
+</div>
+<div class="screen-content">
+<div id="achievements-list" style="max-width: 800px; margin: 0 auto;"></div>
+</div>
+</div>
+
+<!-- ===== LEADERBOARD ===== -->
+<div id="leaderboard-screen" class="screen">
+<div class="screen-header">
+<button class="back-button" onclick="ui.showScreen('title')">← Back</button>
+<h2>Leaderboard</h2>
+</div>
+<div class="screen-content">
+<div style="max-width: 800px; margin: 0 auto;">
+<div id="leaderboard-stats" style="text-align: center; margin-bottom: 30px; padding: 20px; background: var(--bg-panel); border-radius: 12px; border: 1px solid var(--border-subtle);"></div>
+<div id="leaderboard-list"></div>
+</div>
+</div>
+</div>
+
+<!-- ===== QUEST SCREEN ===== -->
+<div id="quests-screen" class="screen">
+<div class="screen-header">
+<button class="back-button" onclick="ui.showScreen('title')">← Back</button>
+<h2>Daily Quests</h2>
+</div>
+<div class="screen-content">
+<div style="max-width: 800px; margin: 0 auto;">
+<div id="quests-progress" style="text-align: center; margin-bottom: 30px; padding: 20px; background: var(--bg-panel); border-radius: 12px; border: 1px solid var(--border-subtle);"></div>
+<div id="quests-list"></div>
+</div>
+</div>
+</div>
+
+<!-- ===== CARD DETAIL MODAL ===== -->
+<div id="card-detail-modal" class="modal-overlay">
+<div class="modal" style="max-width: 400px;">
+<button class="modal-close" onclick="ui.closeCardDetail()">×</button>
+<div id="card-detail-content"></div>
+</div>
+</div>
+
+</div>
+<!-- LAN netcode: must load AFTER the inline UI + js/game.js so `ui`/`GameEngine` exist -->
+<script src="js/net.js"></script>
+</body>
+</html>

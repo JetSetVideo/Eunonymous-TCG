@@ -1,0 +1,241 @@
+SYNTHOPWARS - WORLD OF SYNTHOPIA
+(Lore & Lexicon — v3.0, reconciled with docs/CARDS.md and GAME_RULES.md)
+
+================================================================
+PART I — THE GREAT VAULT
+================================================================
+
+In the year 2187, six Neo-Cities discovered the Great Vault - an ancient repository of infinite power
+buried beneath the ruins of Old Earth. The Vault is said to contain the source code of reality itself,
+and whoever controls it can reshape the world.
+
+Every Commander who marches on the Vault marches as one of nine kinds of thing a person can become
+in Synthopia. That choice — Character, not city, not faction — is the first decision a Commander makes,
+before they ever draw a card. See PART III.
+
+================================================================
+PART II — THE SIX NEO-CITIES
+================================================================
+
+1. DALIAN BLOCK (Cyber-rain)
+   - A city of perpetual rain and neon lights
+   - Information is the true currency
+   - Home to the Overchargers and Control Syndicate tribes
+   - Traps are hidden in shadows; visibility is low
+   - Famous for: Data markets, underground hacking rings
+   - Strongest Character presence: Cyborg, Memetic, Schemist
+
+2. MASHHAD MEGACITY (Desert storm)
+   - Built in the remnants of ancient deserts
+   - Sandstorms are a way of life
+   - Home to the Chaos Cult and Titanborn tribes
+   - Speed is everything; slow creatures die young
+   - Famous for: Arena battles, sand-sailing races
+   - Strongest Character presence: Technopriest
+
+3. LONDON REALITY (Fog)
+   - Shrouded in eternal fog
+   - Deception and espionage are arts
+   - Home to the Control Syndicate and Synth Legends tribes
+   - Nothing is visible until it's too late
+   - Famous for: Shadow wars, illusions, secret societies
+   - Strongest Character presence: Ethereal, Schemist
+
+4. STAR BEIJING (Neon overload)
+   - The brightest city in the world
+   - Energy courses through every street
+   - Home to the Overchargers and Economy Lords tribes
+   - Power is abundant but dangerous
+   - Famous for: Energy duels, neon gardens
+   - Strongest Character presence: Synthetic, Organizer
+
+5. PEOPLE'S REPUBLIC OF LAHORE (Golden hour)
+   - A sanctuary of healing and restoration
+   - The most beautiful city in the Neo-World
+   - Home to the Fortress Guild and Synergy Collective tribes
+   - Healing is doubled; life flourishes
+   - Famous for: Healing springs, botanical gardens
+   - Strongest Character presence: Biopure
+
+6. FUTURE ODESSA (Gravity wells)
+   - Where reality bends and gravity warps
+   - The most mysterious city
+   - Home to the Chaos Cult and Economy Lords tribes
+   - Space is limited; everything is compressed
+   - Famous for: Gravity surfing, dimensional rifts
+   - Strongest Character presence: Refinist
+
+================================================================
+PART III — THE NINE CHARACTERS
+================================================================
+
+A Character is who you play as: it decides which signature cards you can ever hold, and the five-axis
+shape (Cost, Stats, Engine, Choice, Tempo) of the fights you're built to win. Mechanical detail — signature
+cards, exact axis ratings, deck-construction rules — lives in docs/CARDS.md. This section is the myth
+behind the mechanics.
+
+1. SYNTHETIC — Chrome Silver — "No flourish, no waste."
+   Mass-produced android infantry out of the Star Beijing assembly stacks. A Synthetic doesn't have
+   a philosophy so much as a spec sheet, and the spec sheet is better than yours. They don't believe
+   in cleverness; they believe in tolerances. When a Synthetic unit fails, the factory ships another
+   by the following shift change.
+
+2. MEMETIC — Glitch Fuchsia — "An idea doesn't need a body to spread."
+   Rogue signal-cults out of the Dalian Block data markets, running their doctrine on hijacked
+   ad-servers. A Memetic Commander doesn't field an army so much as release one — a single infected
+   thought, copied and re-copied until the battlefield is arguing with itself. Bodies are disposable;
+   the idea is what wins.
+
+3. REFINIST — Refined Bronze — "Nothing is waste. Everything is one process away from being useful."
+   Alchemist-engineers of Future Odessa, who look at a dying soldier and see feedstock. The Refinist
+   creed holds that value is never destroyed, only badly allocated — and that a battlefield is simply
+   an inefficient refinery that hasn't met them yet. Slow to start. Nearly unstoppable once the
+   crucible is hot.
+
+4. TECHNOPRIEST — Ritual Crimson — "The Machine God does not want your creature. It wants your
+   creature's death."
+   A techno-religious order out of Mashhad Megacity that reads sacrifice as liturgy. To a Technopriest,
+   a creature was never a soldier — it was always a psalm waiting to be sung, and the singing is done
+   in blood and static. Every fallen ally makes the next hymn stronger.
+
+5. CYBORG — Acid Lime — "You don't out-think the Redline. You get run over by it."
+   Street-augmented brawlers from Dalian Block's underdecks, running on stolen adrenaline and worse
+   wiring. No doctrine, no patience, no plan past the next three seconds — just the fastest possible
+   route from turn one to your base HP hitting zero.
+
+6. BIOPURE — Deep Jade — "Augment nothing. Grow everything."
+   Anti-cybernetic naturalists holding the last green ground in Lahore Republic, in open contempt of
+   every other Character on this list. A Biopure Commander doesn't build an army, they cultivate one —
+   and cultivation, done right, outlasts anything built.
+
+7. ETHEREAL — Periwinkle — "You cannot counter what isn't fully there yet."
+   Phase-shifted energy remnants haunting London Reality's permanent fog — soldiers who are only
+   partially committed to existing in this particular timeline. Fragile if you can catch them.
+   You will not often catch them.
+
+8. ORGANIZER — Indigo — "One of us is nothing. Forty of us is a supply chain."
+   Hive-logistics network out of Star Beijing's warehouse districts. An Organizer Commander does not
+   believe in heroes, only throughput — a thousand small, replaceable, well-coordinated things beat one
+   large, irreplaceable thing, every time the math is run.
+
+9. SCHEMIST — Shadow Violet — "The winning move was decided three turns before you noticed you were
+   playing."
+   Deception specialists working the black markets between all six Neo-Cities, loyal to no city because
+   loyalty is a lever, and levers belong to whoever's holding them. A Schemist doesn't win the fight you
+   think you're in. They win a different one, quietly, underneath it.
+
+================================================================
+PART IV — THE EIGHT TRIBES (TEAMS)
+================================================================
+
+Tribes (Teams) are cultures, not classes — any Character's deck can carry any Tribe's Colorless cards,
+and fields synergy bonuses when enough of one Tribe shares the battlefield (GAME_RULES.md §8). Where a
+Character answers "who are you," a Tribe answers "what does your army believe."
+
+1. OVERCHARGERS (Red, #ff2a6d)
+   - Philosophy: Strike fast, strike hard
+   - Leaders: Neon Striker, Crimson Vanguard
+   - Strength: Early game dominance
+   - Weakness: Weak late game
+   - Cards: Fast, low-cost creatures with Charge
+
+2. FORTRESS GUILD (Green, #05ffa1)
+   - Philosophy: Outlast, endure, survive
+   - Leaders: Colossus Warden, Living Wall
+   - Strength: Survivability, healing
+   - Weakness: Slow to start
+   - Cards: High defense, structures, healing
+
+3. CONTROL SYNDICATE (Blue, #00d9ff)
+   - Philosophy: Deny, disrupt, dominate
+   - Leaders: Dominus, Void Weaver
+   - Strength: Resource denial, counterplay
+   - Weakness: Needs precise timing
+   - Cards: Traps, counter-spells, debuffs
+
+4. SYNERGY COLLECTIVE (Purple, #bc13fe)
+   - Philosophy: Together we are stronger
+   - Leaders: Hive Queen, Echo Mimic
+   - Strength: Scaling, combo chains
+   - Weakness: Vulnerable to board wipes
+   - Cards: Buff stacking, link effects, tokens
+
+5. ECONOMY LORDS (Gold, #ffd700)
+   - Philosophy: Invest now, dominate later
+   - Leaders: Golden Avatar, Tycoon
+   - Strength: Late game power, resource generation
+   - Weakness: Weak early game
+   - Cards: Power generators, high-cost creatures
+
+6. CHAOS CULT (Black, #ff6b35)
+   - Philosophy: Embrace the randomness
+   - Leaders: Joker, Chaos Engine
+   - Strength: High variance, unpredictable
+   - Weakness: Can sabotage yourself
+   - Cards: Random effects, coin flips, swaps
+
+7. SYNTH LEGENDS (Cyan, #00f5ff)
+   - Philosophy: The old ways are the strongest
+   - Leaders: Ancient Guardian, Synth Titan
+   - Strength: Single powerful cards, immunity
+   - Weakness: Few in number
+   - Cards: Ancient, high-stat, immune creatures
+
+8. TITANBORN (Orange, #ff8c00)
+   - Philosophy: Size is everything
+   - Leaders: World Breaker, Earth Shaker
+   - Strength: Massive stats, area effects
+   - Weakness: Very slow
+   - Cards: Colossal creatures, quake effects
+
+================================================================
+PART V — THE CARD SYSTEM (recap)
+================================================================
+
+Full mechanical spec: docs/CARDS.md and GAME_RULES.md. Summary:
+
+Every card carries two independent tags — Character (who may own it: one of the 9 above, or Colorless
+= anyone) and Team (which Tribe's synergy it feeds).
+
+Seven primary values: Attack (ATK), Defense (DEF), Power (PWR, cost to play), Production (PRD, power
+generated per turn), Cost (mana cost to buy), Type (Creature/Spell/Trap/Structure/Action/Gear/
+Conspiracy/Role), Team (tribal affiliation).
+
+Secondary values: Speed (attack order), Health (HP), Range (Melee/Ranged/Artillery), Combo ID (legacy
+tribal synergy tag), Rarity (Common -> Uncommon -> Rare -> Epic -> Legendary -> Mythic).
+
+================================================================
+PART VI — LEXICON
+================================================================
+
+BANK PHASE — the card-acquisition phase of a turn; spend Mana to buy from the Metadeck market.
+MAIN PHASE — the phase where bought cards are played from hand using Power, and attacks are declared.
+RESOLUTION PHASE — end-of-turn phase where played cards resolve in rarity/cost priority and combat lands.
+METADECK — the 80-card pool formed by shuffling both players' 40-card decks together at battle start;
+   the only source of cards either player will ever hold.
+COLORLESS — a card with no Character lock; any of the 9 Characters may run it.
+SIGNATURE CARD — one of a Character's 8 class-exclusive cards; only that Character may own it.
+TRIBE / TEAM — one of the 8 factional culture tags (Overchargers, Fortress, Control, Synergy, Economy,
+   Chaos, Synth Legends, Titanborn) that governs battlefield Ally/Synergy bonuses, independent of Character.
+AXIS — one of the five design dials (Cost, Stats, Engine, Choice, Tempo) that fixes a Character's identity.
+MANA BURN — HP damage taken for ending the Bank phase with more than 2 unused Mana.
+FATIGUE — escalating HP damage taken for drawing from an empty personal deck; three such draws end the game (Exodus).
+SUDDEN DEATH — from turn 31 onward, both Commanders take 2 damage per turn until the match resolves.
+DANGER EVENT — an escalating hazard (Void Storm, Solar Flare, Gravity Surge, Scavenger Pod, Nebula Bloom)
+   that strikes both Commanders every 4 turns starting turn 6.
+BATTLE LOG — the full structured, timestamped record of a match's events (buys, plays, attacks, abilities,
+   structure changes, win-condition progress), presented as a scrolling, filterable feed during and after battle.
+
+================================================================
+PART VII — VICTORY CONDITIONS
+================================================================
+
+1. ANNIHILATION: Reduce opponent Base HP to 0
+2. DOMINATION: Control 3+ structures for 3 consecutive turns
+3. COMBO VICTORY: Field 5 different Tribes simultaneously
+4. EXODUS: Deck your opponent (3 forced empty-deck draws, escalating fatigue damage)
+5. TIMEOUT: Turn 30 reached with neither side eliminated — highest HP wins, exact tie is a Draw
+6. SUDDEN DEATH: From turn 31, both sides take 2 damage/turn until resolution
+7. SURRENDER: Forfeit
+
+THE GREAT VAULT AWAITS.

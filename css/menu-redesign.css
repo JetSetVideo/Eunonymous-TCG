@@ -1,0 +1,222 @@
+/* ==========================================================================
+   Synthopwars — Menu & Button Redesign ("Fluid Metal")
+   Loaded last so it wins the cascade over main.css's original flat-outline
+   .menu-button. Keeps the existing .gear-icon (Settings) untouched — it was
+   the one piece of the menu already reading as clear and well-built, so it's
+   the reference point this file is matching everything else up to.
+   ========================================================================== */
+
+/* ---------- Title screen: liquid-chrome background layer ---------- */
+/* Sits alongside the existing grid/scanline/vignette/star layers; a slow,
+   drifting metallic sheen behind the menu so the screen feels alive without
+   competing with the buttons themselves for attention. */
+.title-bg-fluidmetal {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  background:
+    radial-gradient(ellipse 60% 45% at 20% 25%, rgba(180,195,215,0.16), transparent 60%),
+    radial-gradient(ellipse 55% 40% at 82% 70%, rgba(0,217,255,0.12), transparent 60%),
+    radial-gradient(ellipse 50% 35% at 55% 95%, rgba(188,19,254,0.10), transparent 60%),
+    linear-gradient(120deg, #0a0a0f 0%, #14141d 25%, #1c1c28 45%, #14141d 65%, #0a0a0f 100%);
+  background-size: 200% 200%, 200% 200%, 200% 200%, 240% 240%;
+  animation: fluidMetalDrift 22s ease-in-out infinite;
+}
+@keyframes fluidMetalDrift {
+  0%   { background-position: 0% 0%, 100% 100%, 50% 100%, 0% 50%; }
+  33%  { background-position: 30% 60%, 70% 30%, 20% 60%, 50% 30%; }
+  66%  { background-position: 70% 20%, 20% 70%, 80% 20%, 100% 70%; }
+  100% { background-position: 0% 0%, 100% 100%, 50% 100%, 0% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .title-bg-fluidmetal { animation: none; }
+}
+
+/* ---------- Menu button: brushed-metal panel + fluid sheen ---------- */
+.menu-button {
+  --btn-accent: var(--accent-cyan);
+  --btn-accent-rgb: 0, 245, 255;
+
+  position: relative;
+  display: block;
+  width: 300px;
+  padding: 16px 30px;
+  margin: 6px auto;
+  border-radius: 8px;
+  border: 1px solid rgba(var(--btn-accent-rgb), 0.4);
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  z-index: 0;
+
+  font-family: var(--font-title);
+  font-size: 1.05rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+
+  /* Brushed-metal panel: dark base + diagonal brush lines + faint hex dots */
+  background-color: #16161f;
+  background-image:
+    repeating-linear-gradient(115deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 1px, transparent 1px, transparent 5px),
+    radial-gradient(1.5px 1.5px at 12% 30%, rgba(var(--btn-accent-rgb), 0.35), transparent),
+    radial-gradient(1.5px 1.5px at 88% 70%, rgba(var(--btn-accent-rgb), 0.25), transparent),
+    linear-gradient(180deg, #22222e 0%, #17171f 45%, #101016 100%);
+
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.06) inset,
+    0 -12px 18px rgba(0,0,0,0.35) inset,
+    0 6px 16px rgba(0,0,0,0.45),
+    0 0 0 rgba(var(--btn-accent-rgb), 0);
+
+  transition: box-shadow 0.35s ease, transform 0.2s ease, border-color 0.35s ease, color 0.25s ease;
+}
+
+/* Idle ambient sheen — a slow diagonal light band drifting across the panel,
+   like light moving across brushed chrome. Independent of hover. */
+.menu-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* Negative z-index (contained by isolation:isolate above) keeps this above
+     the button's own background but below its text, so the sweeping sheen
+     never washes out the label. */
+  z-index: -1;
+  background: linear-gradient(75deg,
+    transparent 0%, transparent 38%,
+    rgba(255,255,255,0.10) 46%,
+    rgba(var(--btn-accent-rgb), 0.16) 50%,
+    rgba(255,255,255,0.10) 54%,
+    transparent 62%, transparent 100%);
+  background-size: 260% 260%;
+  background-position: 100% 0%;
+  animation: fluidSheen 6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes fluidSheen {
+  0%   { background-position: 130% -20%; }
+  50%  { background-position: -30% 20%; }
+  100% { background-position: 130% -20%; }
+}
+
+.menu-button:hover {
+  color: var(--btn-accent);
+  border-color: var(--btn-accent);
+  transform: translateY(-3px);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.1) inset,
+    0 -12px 18px rgba(0,0,0,0.3) inset,
+    0 10px 26px rgba(0,0,0,0.5),
+    0 0 26px rgba(var(--btn-accent-rgb), 0.45),
+    0 0 2px rgba(var(--btn-accent-rgb), 0.8);
+}
+.menu-button:hover::before { animation-duration: 1.6s; }
+
+.menu-button:active {
+  transform: translateY(-1px) scale(0.98);
+}
+
+.menu-button:focus-visible {
+  outline: 2px solid var(--btn-accent);
+  outline-offset: 3px;
+}
+
+/* Primary (gold) variant keeps its own accent through the same system */
+.menu-button.primary-btn {
+  --btn-accent: var(--accent-gold);
+  --btn-accent-rgb: 255, 215, 0;
+  width: 340px;
+  font-size: 1.15rem;
+  letter-spacing: 0.12em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-button::before { animation: none; }
+}
+
+/* Smaller contexts (result overlay, deck-builder sidebar) already set their
+   own width/padding inline or via more specific selectors — those still win
+   naturally since they're more specific than this base rule. */
+
+
+/* ==========================================================================
+   Friends screen restructure — was fully inline-styled; rebuilt on the same
+   card/section pattern the Settings screen already used well.
+   ========================================================================== */
+.friends-layout {
+  display: flex;
+  gap: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  align-items: flex-start;
+}
+
+.friends-panel {
+  flex: 1;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.3);
+}
+.friends-panel.chat-panel {
+  flex: 0 0 350px;
+  display: flex;
+  flex-direction: column;
+}
+
+.friends-panel-title {
+  font-family: var(--font-title);
+  color: var(--accent-cyan);
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0 0 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.friends-add-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+.friends-add-input {
+  flex: 1;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 10px 12px;
+  font-family: var(--font-body);
+  transition: border-color 0.2s ease;
+}
+.friends-add-input:focus {
+  outline: none;
+  border-color: var(--accent-cyan);
+}
+.friends-add-btn {
+  width: auto;
+  display: inline-block;
+  padding: 10px 22px;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.chat-panel .chat-messages {
+  height: 340px;
+  background: var(--bg-dark);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+.chat-panel .chat-input input,
+.chat-panel .chat-input button {
+  border-radius: 6px;
+}
+
+@media (max-width: 800px) {
+  .friends-layout { flex-direction: column; }
+  .friends-panel.chat-panel { flex: 1 1 auto; }
+}
