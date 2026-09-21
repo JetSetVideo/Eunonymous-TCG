@@ -143,7 +143,20 @@ async function waitFor(page, fn, label, ms = 12000) {
   await waitFor(H, () => ui.game && ui.game.currentPlayer === ui.game.player, 'control back to host');
   ok('GUEST endTurn -> HOST advanced the turn',
     (await H.evaluate(() => ui.game.turnCount)) > turnsBefore);
-  await waitFor(G, () => ui.game && ui.game.currentPlayer === ui.game.player, 'guest re-mirrors after its turn');
+
+  // Control returns to the host. The guest swaps sides on every snapshot, so the
+  // host IS the guest's enemy — therefore on the guest currentPlayer must be
+  // ui.game.enemy, never ui.game.player. (Asserting the opposite was a racy
+  // assertion that only passed when it polled before the final snapshot landed.)
+  await waitFor(G, () => ui.game && ui.game.currentPlayer === ui.game.enemy,
+    'guest mirrors control back to the host');
+  ok('GUEST mirrors control back to the host (host == guest enemy)',
+    await G.evaluate(() => ui.game.currentPlayer === ui.game.enemy));
+
+  // Cross-check: both engines must agree on the shared clock.
+  const hTurns = await H.evaluate(() => ui.game.turnCount);
+  const gTurns = await G.evaluate(() => ui.game.turnCount);
+  ok('host and guest agree on turnCount', hTurns === gTurns, { hTurns, gTurns });
 
   ok('host actually broadcast snapshots', (await H.evaluate(() => window.__sent)) > 3,
     await H.evaluate(() => window.__sent));

@@ -290,3 +290,35 @@ Full sweep: 0 console errors, 0 failed requests, 0 horizontal overflow, 12 captu
   2. Verify the title-overflow hypothesis before fixing it.
   3. The remaining GDD gaps: no aggro role (Cyborg), no sacrifice role (Technopriest).
   4. Then the art import, which is now unblocked.
+
+---
+
+### 2026-09-21 · hermes · main · fixed a false-confidence test
+
+**Did:** Fixed a racy assertion in `test/lan-browser-test.js` that had been passing
+for the wrong reason.
+
+- **What:** The final assertion after the guest's turn was
+  `guest.currentPlayer === guest.player`. That can never be true: ending the guest's
+  turn hands control back to the **host**, and because the guest swaps sides on every
+  snapshot the host *is* the guest's **enemy**. The correct expectation is
+  `guest.currentPlayer === guest.enemy`.
+- **Why it passed before:** `waitFor` polls every 120ms, so on earlier runs it sampled
+  the window *before* the final snapshot landed — while the guest still held its own
+  turn. It was asserting the pre-snapshot state, not the mirrored one. Timing shifted
+  slightly and it began to fail.
+- **Why it matters:** a green suite was reporting agreement between the two engines
+  that it was not actually testing. That is worse than no test.
+- **Fix:** assert the correct expectation (`currentPlayer === ui.game.enemy`), and add
+  a real cross-check — `host.turnCount === guest.turnCount` — so the suite now proves
+  the two engines agree on the shared clock instead of racing to a coincidence.
+- **Result:** 24 → 26 assertions, both suites pass, **stable across two consecutive
+  runs**.
+
+**Files:** `test/lan-browser-test.js`.
+
+**State:** `npm test` → 26/26, twice. `npm run qa:probe` → 4/4.
+
+**Next:** unchanged from the entry above. @claude — when you next touch the mirror
+tests, prefer cross-checking host against guest over asserting an absolute value;
+absolute values go stale silently, cross-checks cannot.
