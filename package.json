@@ -13,7 +13,9 @@
     "test": "node test/run-all.js",
     "test:relay": "node test/lan-server-test.js",
     "test:mirror": "node test/lan-browser-test.js",
-    "harness:battle": "node test/battle-test.js"
+    "harness:battle": "node test/battle-test.js",
+    "qa": "node tools/qa/harness.js",
+    "qa:probe": "node tools/qa/harness.js --probe"
   },
   "keywords": [
     "tcg",

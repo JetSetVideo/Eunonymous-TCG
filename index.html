@@ -927,6 +927,7 @@
 <canvas id="vfx-canvas" style="position: fixed; inset: 0; pointer-events: none; z-index: 998;"></canvas>
 
 <!-- Scripts -->
+<script src="js/version.js"></script>
 <script src="js/cards.js?v=9"></script>
 <script src="js/characters.js?v=1"></script>
 <script src="js/audio.js?v=9"></script>
@@ -3260,8 +3261,8 @@ container.innerHTML = filtered.map((c, i) => {
         }
         // Pass battleground rules toggle to engine
         this.game.applyBGRules = this.applyBGRules !== false;
-        this.game.startBattle(finalDeck, enemyDeck, '1v1', this.selectedBattleground);
-        if (this.coinWinner === 'enemy') this.game.startTurn(this.game.enemy);
+        this.game.startBattle(finalDeck, enemyDeck, '1v1', this.selectedBattleground,
+          this.coinWinner === 'enemy' ? 'enemy' : 'player');
         this.showScreen('battle');
 
         // Apply battleground animated background

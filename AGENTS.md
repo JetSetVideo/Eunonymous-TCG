@@ -21,6 +21,8 @@ and it runs. Set in the Synthtopia universe.
 | Characters | `js/characters.js` (`CHARACTER_LIST`) |
 | Visuals | `js/shaders.js` (WebGL2, CSS fallback), `js/vfx.js` |
 | LAN netcode | `js/net.js` (client) + `server/lan-server.js` (relay) |
+| Version | `js/version.js` — `GAME_VERSION` + `BALANCE_REVISION`, loaded FIRST. See `docs/VERSIONING.md` |
+| QA harness | `tools/qa/harness.js` — stamped screenshots, FPS, probes. See `docs/QA_HARNESS.md` |
 | Rules doc | `GAME_RULES.md`, `docs/CARDS.md`, `docs/GDD.md` |
 
 ## 2. Architecture notes that will bite you
@@ -95,6 +97,31 @@ Individually: `npm run test:relay` / `npm run test:mirror`.
   it only logs a play-through, has no assertions, and needs its own server on :8931.
   It is not part of `npm test` and is kept for interactive debugging only.
 - **A green `npm test` is the bar for touching netcode.**
+
+### 5b. QA harness — screenshots, metrics and probes
+
+```bash
+npm run qa          # all viewports x title+quickbattle, stamped screenshots
+npm run qa:probe    # probes only — fast
+```
+
+`tools/qa/harness.js` covers the responsive matrix (phone both orientations, tablet,
+laptop, desktop), measures FPS, captures every console error / JS exception / failed
+request, flags layout overflow, and writes `tools/qa/out/REPORT.md` + `report.json`.
+Every screenshot carries the game version burnt into it.
+
+**Probes are the regression net.** When you fix a bug, add a probe that fails first
+and passes after — prose descriptions of bugs rot, probes do not. Run
+`npm run qa:probe` before and after any fix to the turn flow or UI.
+
+Full guide: `docs/QA_HARNESS.md`.
+
+### 5c. Who does what, and how findings are filed
+
+Specialist agents, their ownership, the six-W reporting contract (what/where/when/
+why/how/what-next), the player-persona test panel and the 14-axis balance matrix are
+defined in `docs/AGENT_ROSTER.md`. Read it before proposing a rules or balance
+change — a change must be scored against all axes, not just the one it targets.
 
 ## 6. Conventions
 

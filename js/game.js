@@ -109,7 +109,7 @@ class GameEngine {
     }
   }
 
-  startBattle(deck, enemyDeck, mode, battleground) {
+  startBattle(deck, enemyDeck, mode, battleground, firstSide) {
     mode = mode || '1v1';
     battleground = battleground || null;
     this.state = 'battle';
@@ -178,7 +178,11 @@ class GameEngine {
     this.log('Metadeck created with ' + this.metaDeck.length + ' cards. Both Commanders start with an empty hand.');
     this.recordEvent('battleStart', { battleground: battleground ? battleground.name : 'Standard', metadeckSize: this.metaDeck.length });
     this.emit('battleStart', { battleground: battleground });
-    this.startTurn(this.player);
+    // Who takes the opening turn. startBattle must be the ONLY thing that starts
+    // a turn: callers used to call startTurn() again for the coin-toss winner,
+    // which double-incremented turnCount and skipped the player's first Bank
+    // phase (the enemy appeared to act before the player in the battle log).
+    this.startTurn(firstSide === 'enemy' ? this.enemy : this.player);
   }
 
   shuffle(array) {

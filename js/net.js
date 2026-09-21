@@ -259,13 +259,13 @@
       return r;
     };
 
-    P.startBattle = function (deck, enemyDeck, mode, bg) {
+    P.startBattle = function (deck, enemyDeck, mode, bg, firstSide) {
       if (Net.mode === 'guest') {
         log('guest: startBattle suppressed — awaiting host snapshot');
         return;
       }
       this.netHumanEnemy = (Net.mode === 'host');
-      var r = Net._orig.startBattle.call(this, deck, enemyDeck, mode, bg);
+      var r = Net._orig.startBattle.call(this, deck, enemyDeck, mode, bg, firstSide);
       if (Net.mode === 'host') { Net.inMatch = true; Net.markDirty(true); }
       return r;
     };
