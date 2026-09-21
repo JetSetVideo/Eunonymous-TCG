@@ -183,6 +183,85 @@ const PROBES = {
     return { probe: 'menu-reachable-on-small-screens', observed: r, problems };
   },
 
+  async 'no-page-scroll'(page) {
+    // DIRECTIVE: the game must fit strictly inside 100vh x 100vw. Zero page
+    // scrolling at any size. This probe measures it AND names the offenders, so a
+    // failure tells you what to fix rather than just that something is wrong.
+    const problems = [];
+    const observed = {};
+
+    for (const vpName of ['phone-portrait', 'phone-landscape', 'tablet-portrait',
+                          'tablet-landscape', 'laptop', 'desktop']) {
+      const vp = VIEWPORTS[vpName];
+      await page.setViewport({ width: vp.width, height: vp.height, deviceScaleFactor: vp.dpr });
+      await sleep(450);
+
+      const r = await page.evaluate(() => {
+        const de = document.documentElement;
+        const vh = window.innerHeight;
+        const vw = window.innerWidth;
+        const act = document.querySelector('.screen.active');
+        const offenders = [];
+        document.querySelectorAll('body *').forEach((el) => {
+          const cs = getComputedStyle(el);
+          if (cs.display === 'none' || cs.visibility === 'hidden') return;
+          if (cs.position === 'fixed') return;           // fixed overlays don't scroll
+          const b = el.getBoundingClientRect();
+          if (b.height === 0 && b.width === 0) return;
+          const overY = Math.round(b.bottom - vh);
+          const overX = Math.round(b.right - vw);
+          if (overY <= 4 && overX <= 4) return;
+          let sel = el.tagName.toLowerCase();
+          if (el.id) sel = '#' + el.id;
+          else if (typeof el.className === 'string' && el.className.trim()) {
+            sel = '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.');
+          }
+          offenders.push({ sel, overY, overX, h: Math.round(b.height), w: Math.round(b.width) });
+        });
+        offenders.sort((a, b) => (b.overY + b.overX) - (a.overY + a.overX));
+        const seen = new Set(); const top = [];
+        for (const o of offenders) {
+          if (seen.has(o.sel)) continue;
+          seen.add(o.sel); top.push(o);
+          if (top.length >= 8) break;
+        }
+        return {
+          overflowY: de.scrollHeight - de.clientHeight,
+          overflowX: de.scrollWidth - de.clientWidth,
+          scrollH: de.scrollHeight, clientH: de.clientHeight,
+          scrollW: de.scrollWidth, clientW: de.clientWidth,
+          activeScreen: act ? act.id : null,
+          activeOverflowY: act ? act.scrollHeight - act.clientHeight : 0,
+          activeOverflowX: act ? act.scrollWidth - act.clientWidth : 0,
+          activeScrollH: act ? act.scrollHeight : 0,
+          activeClientH: act ? act.clientHeight : 0,
+          top,
+        };
+      });
+
+      observed[vpName] = r;
+      if (r.overflowY > 1) {
+        problems.push(vpName + ': PAGE vertical overflow ' + r.overflowY + 'px (' +
+          r.scrollH + ' vs ' + r.clientH + ')' +
+          (r.top.length ? ' | deepest: ' + r.top.slice(0, 4).map((o) => o.sel + ' +' + o.overY + 'px').join(', ') : ''));
+      }
+      if (r.overflowX > 1) {
+        problems.push(vpName + ': PAGE horizontal overflow ' + r.overflowX + 'px');
+      }
+      // The directive requires the whole UI to sit inside the viewport, so the
+      // active screen must not scroll internally either.
+      if (r.activeOverflowY > 1) {
+        problems.push(vpName + ': ACTIVE SCREEN #' + r.activeScreen + ' scrolls internally by ' +
+          r.activeOverflowY + 'px (' + r.activeScrollH + ' vs ' + r.activeClientH + ')');
+      }
+      if (r.activeOverflowX > 1) {
+        problems.push(vpName + ': ACTIVE SCREEN #' + r.activeScreen + ' overflows horizontally by ' +
+          r.activeOverflowX + 'px');
+      }
+    }
+    return { probe: 'no-page-scroll', observed, problems };
+  },
+
   async 'battle-log-matches-history'(page) {
     // The log panel must render exactly the current match's events.
     const r = await page.evaluate(() => {

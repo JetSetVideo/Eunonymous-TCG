@@ -322,3 +322,74 @@ for the wrong reason.
 **Next:** unchanged from the entry above. @claude — when you next touch the mirror
 tests, prefer cross-checking host against guest over asserting an absolute value;
 absolute values go stale silently, cross-checks cannot.
+
+---
+
+### 2026-09-21 · hermes · main · 100vh no-scroll achieved (directive Phase 1)
+
+**Directive:** "The entire layout—headers, battlefields, decks, player bars, logs and
+settings—must reside dynamically inside the viewport bounds. Zero vertical or
+horizontal page scrolling allowed."
+
+**Method:** made the requirement machine-checkable BEFORE touching layout. New probe
+`no-page-scroll` measures both the page **and the active screen** on both axes, across
+all 6 viewports, and names the offending elements.
+
+#### Fix 1 — the document was exactly 2x the viewport
+
+- **What:** page `scrollHeight` was 2x `clientHeight` at **every** viewport
+  (844→1688, 1024→2048, 768→1536, 1080→2160).
+- **Where:** `css/main.css:2014`, the `#title-screen` block in "TITLE SCREEN REDESIGN".
+- **Why:** that block set `position: relative` on `#title-screen`. `.screen` sets
+  `position: absolute`, which keeps screens OUT of normal flow so they overlap — but an
+  **ID selector beats a class selector**, so the active title screen was pulled back
+  into flow. It then occupied a full viewport and pushed its sibling `#screen-shake`
+  down by the same amount: `#screen-shake` measured `top:768, bottom:1536`.
+- **How found:** the probe's offender list. **My stated hypothesis — "inactive
+  `.screen` blocks are not display:none" — was WRONG.** Screens *are* `display:none`.
+  Measuring instead of fixing blind is what avoided a wasted change.
+- **Fix:** dropped the `position` declaration (with a comment explaining why it must
+  not come back).
+
+#### Fix 2 — decoration was forcing the scroll
+
+- **What:** the screen still scrolled internally by 105–290px, and horizontally by
+  66–574px.
+- **Where:** `.title-bg-grid` (and 4 sibling layers) in `index.html`.
+- **Why:** `.title-bg-grid` uses `transform: perspective(500px) rotateX(60deg)
+  translateY(20%)`. Its *rendered* bounds far exceed its `inset: 0` box, and as direct
+  children of the screen they inflated `scrollHeight`.
+- **Fix:** wrapped all 5 decorative layers in one `.title-bg` container with
+  `overflow: hidden`, so decoration can never affect layout again.
+
+#### Fix 3 — parametric sizing for the title menu
+
+- **What:** the menu (header + 9 buttons) is the tallest surface; content was still
+  6–34px too tall at 768/844/1024, and the H1 was 447px wide inside a 390px phone.
+- **Why:** fixed sizes. Critically, the H1's binding constraint on a phone is **width**,
+  not height — so clamps driven only by `vh` could not fix it.
+- **Fix:** `#title-screen` now exposes parametric metrics
+  (`--t-h1`, `--t-btn-pad-y`, `--t-btn-font`, `--t-gap`, …), every one a
+  `clamp(min, preferred, max)` with `preferred = min(vh-term, vw-term)`. Retune the
+  variables, not the rules. A `max-height: 520px` block switches the buttons to a
+  wrapping row for phone-landscape.
+
+**Verified:** `no-page-scroll` PASS — page and screen both exactly `clientH` on both
+axes at all 6 viewports (`overY=0 overX=0` at 390x844, 844x390, 768x1024, 1024x768,
+1366x768, 1920x1080). All 12 captures show `overflow=--`. Visually confirmed at laptop
+and phone. FPS also rose slightly (35→37 phone, 37→42 quickbattle) now the document is
+not double-height. `npm test` still 26/26.
+
+#### New finding — two competing version systems
+
+The game renders its own footer tag reading **"v4.0 · Battle System Overhaul"**
+(`.version-tag` / `#version-display`) while `js/version.js` reports **1.2.0**. Two
+sources of truth for "what version is this" will make the balance-comparison work
+unreliable. **What-next:** collapse them onto `VersionInfo.label()`.
+
+**Files:** `css/main.css`, `index.html`, `tools/qa/harness.js`.
+
+**Next:** @claude — `no-page-scroll` is now the guard for the whole 100vh requirement.
+Extend it to the battle screen (`#battle-screen` has `overflow: hidden` but its inner
+rows were never measured) and to the modals. Then Phase 2 (the Quick Battle match-setup
+screen) has a clean, contained surface to build into.

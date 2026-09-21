@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Eunonymous-TCG - Deckbuilding Battleground</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230a0e1c'/%3E%3Ctext x='32' y='46' font-size='38' text-anchor='middle'%3E%F0%9F%83%8F%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="css/main.css?v=8">
+<link rel="stylesheet" href="css/main.css?v=9">
 <link rel="stylesheet" href="css/cards.css?v=8">
 <link rel="stylesheet" href="css/shaders.css?v=8">
 <link rel="stylesheet" href="css/final-v11.css?v=11">
@@ -52,11 +52,18 @@
 <body>
 <!-- ===== TITLE SCREEN ===== -->
 <div id="title-screen" class="screen active">
-  <div class="title-bg-fluidmetal"></div>
-  <div class="title-bg-grid"></div>
-  <div class="title-bg-scanlines"></div>
-  <div class="title-bg-vignette"></div>
-  <div class="title-bg-stars"></div>
+  <!-- Decorative layers are wrapped in ONE clipped container. They use 3D
+       transforms (perspective/rotateX/translateY) whose rendered bounds are far
+       larger than their box; as direct children of the screen they inflated
+       scrollHeight and forced the whole page to scroll. Clipping here makes
+       decoration unable to affect layout, ever. -->
+  <div class="title-bg" aria-hidden="true">
+    <div class="title-bg-fluidmetal"></div>
+    <div class="title-bg-grid"></div>
+    <div class="title-bg-scanlines"></div>
+    <div class="title-bg-vignette"></div>
+    <div class="title-bg-stars"></div>
+  </div>
   <button class="gear-icon" onclick="ui.showScreen('settings')" title="Settings">⚙️</button>
   <div class="title-content">
     <h1>EUNONYMOUS<!-- --></h1>

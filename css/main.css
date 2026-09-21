@@ -2011,7 +2011,14 @@ body {
   justify-content: center;
   align-items: center;
   text-align: center;
-  position: relative;
+  /* NO `position` here on purpose. `.screen` already sets position:absolute, which
+     keeps the screen OUT of normal flow so all screens overlap and the document
+     stays exactly 100vh. An earlier `position: relative` (an id selector, so it beat
+     `.screen`) put the active screen back into flow: it then occupied a full
+     viewport and pushed its sibling #screen-shake down by the same amount, making
+     the document 2x viewport tall and the whole page scrollable.
+     Absolute positioning still establishes a containing block, so .gear-icon
+     (absolute) and .title-content (z-index) anchor exactly as before. */
 }
 
 .gear-icon {
@@ -6317,5 +6324,70 @@ body {
 @keyframes aiThinkPulse {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
+}
+
+/* ==========================================================================
+   TITLE SCREEN — 100vh FIT
+   Directive: everything must sit inside 100vh x 100vw, zero scrolling.
+   The title menu is the tallest surface in the game (header + 9 buttons), so its
+   metrics are PARAMETRIC: every value is clamp(min, preferred, max), with the
+   preferred term tied to viewport HEIGHT (vh) because height is what runs out.
+   To retune the menu, change these variables — not the rules that consume them.
+   Verified by the `no-page-scroll` probe across all 6 viewports.
+   ========================================================================== */
+
+/* Decoration must never affect layout. The background layers use 3D transforms
+   (perspective/rotateX/translateY) whose rendered bounds far exceed their box;
+   clipping the wrapper stops them inflating the scroll area. */
+.title-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+#title-screen {
+  /* Height (vh) AND width (vw) both constrain these. The h1 is a single 10-letter
+     word, so on a narrow phone its WIDTH is the binding constraint, not its
+     height — hence min(). Getting this wrong is what made the title overflow
+     horizontally by 28px at 390x844. */
+  --t-h1:        clamp(1.3rem, min(5.0vh, 9.4vw), 4.2rem);
+  --t-sub:       clamp(0.58rem, min(1.25vh, 2.6vw), 0.9rem);
+  --t-btn-pad-y: clamp(5px, 1.8vh, 22px);
+  --t-btn-pad-x: clamp(14px, 3.2vw, 52px);
+  --t-btn-font:  clamp(0.7rem,  min(1.7vh, 3.4vw), 1.08rem);
+  --t-gap:       clamp(3px, 0.7vh, 10px);
+  --t-info-pad:  clamp(3px, 0.7vh, 8px);
+  --t-info-font: clamp(0.62rem, min(1.3vh, 2.6vw), 0.9rem);
+}
+#title-screen h1 { font-size: var(--t-h1); line-height: 1.05; max-width: 100%; }
+#title-screen .subtitle { font-size: var(--t-sub); }
+#title-screen .player-quick-info {
+  padding: var(--t-info-pad) clamp(12px, 2.4vw, 20px);
+  margin: var(--t-info-pad) 0;
+  font-size: var(--t-info-font);
+  line-height: 1.2;
+}
+#title-screen .title-content { gap: var(--t-gap); }
+#title-screen .title-buttons {
+  gap: var(--t-gap);
+  margin-top: var(--t-gap);
+}
+#title-screen .menu-button {
+  padding: var(--t-btn-pad-y) var(--t-btn-pad-x);
+  font-size: var(--t-btn-font);
+  line-height: 1.2;
+}
+/* Very short viewports (phone landscape): tighten further — 9 buttons still have
+   to fit, so trade chrome for targets rather than let the menu scroll. */
+@media (max-height: 520px) {
+  #title-screen {
+    --t-btn-pad-y: clamp(4px, 1.7vh, 12px);
+    --t-btn-font:  clamp(0.66rem, 2.3vh, 0.9rem);
+    --t-gap:       clamp(2px, 0.6vh, 6px);
+  }
+  #title-screen .title-buttons { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+  #title-screen .title-buttons > * { flex: 0 1 auto; }
 }
 
