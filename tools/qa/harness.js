@@ -108,6 +108,32 @@ const PROBES = {
     return { probe: 'turn-1-is-not-skipped', observed, problems };
   },
 
+  async 'role-mapping-complete'(page) {
+    // The identity layer: every character must resolve to a real role, and every
+    // role must be claimed. Weak fits are reported but are design decisions.
+    const r = await page.evaluate(() => {
+      if (typeof RoleRegistry === 'undefined') return { missing: true };
+      const a = RoleRegistry.auditRoleMapping();
+      return {
+        ...a,
+        roles: RoleRegistry.ROLE_LIST.length,
+        characters: Object.keys(RoleRegistry.CHARACTER_ROLE).length,
+        mapping: Object.keys(RoleRegistry.CHARACTER_ROLE)
+          .map((c) => c + '->' + RoleRegistry.roleOf(c)),
+      };
+    });
+    if (r.missing) return { probe: 'role-mapping-complete', problems: ['RoleRegistry not loaded (js/roles.js)'] };
+    const problems = [];
+    if (r.roles !== 9) problems.push('expected 9 roles, found ' + r.roles);
+    if (r.unmapped.length) problems.push('characters mapped to unknown roles: ' + r.unmapped.join(', '));
+    if (r.unclaimed.length) problems.push('roles with no character: ' + r.unclaimed.join(', '));
+    return {
+      probe: 'role-mapping-complete',
+      observed: { roles: r.roles, characters: r.characters, weakFits: r.weak, mapping: r.mapping },
+      problems,
+    };
+  },
+
   async 'battle-log-matches-history'(page) {
     // The log panel must render exactly the current match's events.
     const r = await page.evaluate(() => {

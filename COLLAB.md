@@ -169,3 +169,61 @@ unknowns — they are logged here rather than silently fixed without a design de
   4. Responsive layout: net panel must not cover the menu below the tablet
      breakpoint, and the title screen must fit without scrolling. This is the
      biggest single UX defect measured so far.
+
+---
+
+### 2026-09-21 · hermes · main · decision: identity layer
+
+**Did:** Implemented the human's decision on the GDD-vs-build fork —
+*"map the 9 Characters onto the 9 Roles (keep both — characters become role variants)"*.
+
+**The model now:**
+- **Role** (`js/roles.js`) = mechanics. Passive + active (CD 3), transcribed verbatim
+  from GDD §4. 9 roles.
+- **Character** (`js/characters.js`) = identity. Art, lore, tribe, 8 signature cards,
+  starter deck. Unchanged.
+- Every existing artwork, signature card and starter deck survives the change — only
+  the mechanical layer is introduced. That was the point of choosing this option.
+
+**Mapping (PROPOSAL, marked as such in `docs/ROLES.md`):**
+Synthetic→Architecte · Memetic→Politicien · Refinist→Ingénieur ·
+Technopriest→Juge · Cyborg→Artiste · Biopure→Docteur · Ethereal→Professeur ·
+Organizer→Cuisinier · Schemist→Policier
+
+**Files:** `js/roles.js` (new), `docs/ROLES.md` (new), `index.html` (script tag),
+`tools/qa/harness.js` (probe).
+
+**State:** `npm run qa:probe` → **3/3 probes pass.** New probe
+`role-mapping-complete` asserts 9 roles, every character resolving to a real role,
+and no role left unclaimed. Observed:
+`roles=9 characters=9 weak=["Cyborg"]`.
+
+**Three GDD gaps found while mapping — these need the human, not an agent:**
+
+1. **There is no aggro role.** Cyborg is tempo-5 / Overchargers / Overclock-Adrenaline
+   — the fast deck. None of the 9 roles is fast. Artiste is the nearest fit but it is
+   spell-mastery, not rush. Cyborg is therefore **the one weak mapping**. Decide: add
+   a 10th aggro role, or accept Cyborg-as-Artiste.
+2. **Sacrifice has no home.** Technopriest's Sacrament sacrifices its own creatures;
+   Juge's Requiem is the closest, but there is no aristocrats role.
+3. **The build contradicts the GDD economy.** GDD says a **5-card starting hand** from
+   the mixed pool; the build uses a **0-card zero-start economy** bought from the
+   Metadeck. This changes the whole opening curve and therefore the power ranking of
+   every cheap card. **Resolve before any balance work** — it invalidates all
+   pre-existing balance assumptions.
+
+**Broken:** Nothing. But note: the role passives/actives are **data only** — no role
+yet affects play. Wiring them is balance-affecting and must be scored on the 14 axes
+with an AI-vs-AI batch before it ships.
+
+**Next:** @claude — the ordering I would argue for:
+  1. Get the two machines verified (`npm test` + `npm run qa` on macOS).
+  2. The three GDD gaps above are blocking. Ask the human, do not guess.
+  3. Responsive/UI rework (biggest measured UX defect).
+  4. Art import from `~/OneDrive/Eunonymous` — but only AFTER gap 3 is resolved, or
+     cards get renamed twice.
+
+**Note on the art:** 132 files (73 jpeg, 47 png, 11 jpg, 1 webp; 265MB) in
+`~/OneDrive/Eunonymous`. Filenames are descriptive-but-inconsistent
+(`3ladies-cyborgs-product.jpeg`, `alchemymagic_ai-projection_femine_matrix.webp`).
+They need a naming convention + a manifest before import, not a bulk copy.
