@@ -1,7 +1,9 @@
 // Headless test of the LAN room relay (no browser).
-const WebSocket = require('/home/jetsetvideo/Desktop/Eunonymous-TCG/node_modules/ws');
+const WebSocket = require('ws');
 
-const URL = 'ws://127.0.0.1:8787/ws';
+// Overridable so the runner (test/run-all.js) can point this at a temp server.
+const WS_URL = process.env.LAN_URL || 'ws://127.0.0.1:8787/ws';
+const HTTP_URL = process.env.LAN_HTTP || WS_URL.replace(/^ws/, 'http').replace(/\/ws$/, '');
 let pass = 0, fail = 0;
 function ok(name, cond, extra) {
   if (cond) { pass++; console.log('  PASS  ' + name); }
@@ -23,7 +25,7 @@ function once(ws, pred, ms = 3000) {
 
 (async () => {
   console.log('LAN relay test');
-  const host = new WebSocket(URL), guest = new WebSocket(URL);
+  const host = new WebSocket(WS_URL), guest = new WebSocket(WS_URL);
   await Promise.all([open(host), open(guest)]);
 
   host.send(JSON.stringify({ t: 'create', name: 'AliceHost' }));
@@ -32,7 +34,7 @@ function once(ws, pred, ms = 3000) {
   const room = created.room;
 
   // Joining a bad room must error
-  const other = new WebSocket(URL); await open(other);
+  const other = new WebSocket(WS_URL); await open(other);
   other.send(JSON.stringify({ t: 'join', room: 'ZZZZ', name: 'Nobody' }));
   const err = await once(other, (m) => m.t === 'error');
   ok('join unknown room -> NO_ROOM', err.code === 'NO_ROOM', JSON.stringify(err));
@@ -56,7 +58,7 @@ function once(ws, pred, ms = 3000) {
   ok('relay guest->host', gotG2H.payload.k === 'act' && gotG2H.payload.a.kind === 'endTurn', JSON.stringify(gotG2H));
 
   // third player must be rejected
-  const third = new WebSocket(URL); await open(third);
+  const third = new WebSocket(WS_URL); await open(third);
   third.send(JSON.stringify({ t: 'join', room, name: 'Interloper' }));
   const full = await once(third, (m) => m.t === 'error');
   ok('third join -> ROOM_FULL', full.code === 'ROOM_FULL', JSON.stringify(full));
@@ -68,7 +70,7 @@ function once(ws, pred, ms = 3000) {
   ok('host told when guest leaves', !!left.reason, JSON.stringify(left));
 
   // health reflects the room
-  const res = await fetch('http://127.0.0.1:8787/health');
+  const res = await fetch(HTTP_URL + '/health');
   const h = await res.json();
   ok('health lists room', Array.isArray(h.rooms) && h.rooms.length >= 1, JSON.stringify(h.rooms));
 

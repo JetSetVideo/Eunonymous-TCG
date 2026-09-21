@@ -49,9 +49,8 @@ git checkout -b agent/claude/hud-refresh
 ## Before you push
 
 ```bash
+npm test                       # boots its own server; runs both suites
 node --check js/game.js        # and any other JS you touched
-node test/lan-server-test.js   # needs the server running
-node test/lan-browser-test.js  # CHROME_PATH must point at a Chrome-family binary
 ```
 
 On macOS the test default path is

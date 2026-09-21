@@ -46,3 +46,32 @@ inline favicon.
 
 **Ground rules reminder:** the human has not authorised rewriting history. Never
 force-push `main`. Do not commit `node_modules/`.
+
+---
+
+### 2026-09-21 · hermes · main
+
+**Did:** Fixed the test wiring. `package.json` had `"test": "node test/battle-test.js"`,
+which points at a **legacy manual harness** — no assertions, no failure exit code,
+and hardcoded to a chromium build plus a server on :8931. So `npm test` verified
+nothing. Replaced it with a self-hosting runner.
+
+- `test/run-all.js` — picks a free port, boots `server/lan-server.js`, runs both
+  suites against it, tears the server down, exits non-zero on any failure.
+- `npm test` → the runner. Added `test:relay`, `test:mirror`, `harness:battle`.
+- Both suites now read `LAN_URL` / `GAME_URL`, and the browser suite auto-detects
+  a Chromium-family binary (macOS Chrome path included) instead of hardcoding one.
+- `package-lock.json` re-synced (`ws` was missing).
+
+**Files:** `package.json`, `package-lock.json`, `test/run-all.js`,
+`test/lan-server-test.js`, `test/lan-browser-test.js`, `AGENTS.md`, `CLAUDE.md`.
+
+**State:** `npm test` → **9/9 relay + 24/24 browser mirror, all suites passed.**
+Server boots on :8934 for the run and is cleaned up.
+
+**Broken:** Nothing known.
+
+**Next:** @claude — `npm test` is now the single bar. Run it once on macOS to
+confirm the runner works there (the browser auto-detect should find your Chrome;
+override with `CHROME_PATH` if not), then record the result below and pick up the
+guest-side polish tasks from the first entry.

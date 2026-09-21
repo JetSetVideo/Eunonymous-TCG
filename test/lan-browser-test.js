@@ -4,14 +4,31 @@
  *   HOST  = authoritative GameEngine
  *   GUEST = mirror; forwards actions back
  *
- * Run:  node test/lan-browser-test.js
- * Requires the LAN server already running on :8787.
+ * Run via the runner (which boots a server for you):
+ *   npm test
+ * Or point it at a running server:
+ *   GAME_URL=http://127.0.0.1:8787/ node test/lan-browser-test.js
  */
 const path = require('path');
-const puppeteer = require(path.join('/home/jetsetvideo/Desktop/Eunonymous-TCG', 'node_modules', 'puppeteer-core'));
+const puppeteer = require('puppeteer-core');
 
-const EXEC = process.env.CHROME_PATH || '/usr/bin/brave-browser';
-const BASE = 'http://127.0.0.1:8787/';
+// A Chromium-family binary must already exist; puppeteer-core never downloads one.
+function findChrome() {
+  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
+  const candidates = [
+    '/usr/bin/brave-browser',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/google-chrome-stable',
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/home/jetsetvideo/.cache/ms-playwright/chromium-1217/chrome-linux64/chrome'
+  ];
+  const fs = require('fs');
+  for (const c of candidates) { try { if (fs.existsSync(c)) return c; } catch (e) {} }
+  throw new Error('No Chrome-family binary found. Set CHROME_PATH.');
+}
+const EXEC = findChrome();
+const BASE = process.env.GAME_URL || 'http://127.0.0.1:8787/';
 
 let pass = 0, fail = 0;
 function ok(name, cond, extra) {
@@ -30,7 +47,7 @@ async function waitFor(page, fn, label, ms = 12000) {
 }
 
 (async () => {
-  console.log('LAN browser end-to-end test');
+  console.log('LAN browser end-to-end test -> ' + BASE + '  (browser: ' + EXEC + ')');
   const browser = await puppeteer.launch({
     executablePath: EXEC,
     headless: 'new',

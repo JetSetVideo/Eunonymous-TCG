@@ -10,7 +10,10 @@
     "start": "node server/lan-server.js",
     "lan": "node server/lan-server.js",
     "serve": "node server/lan-server.js --static-only",
-    "test": "node test/battle-test.js"
+    "test": "node test/run-all.js",
+    "test:relay": "node test/lan-server-test.js",
+    "test:mirror": "node test/lan-browser-test.js",
+    "harness:battle": "node test/battle-test.js"
   },
   "keywords": [
     "tcg",

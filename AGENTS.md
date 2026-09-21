@@ -74,16 +74,27 @@ node server/lan-server.js   # serves the game + the WebSocket room relay
 ## 5. Testing — run these before you push
 
 ```bash
-node test/lan-server-test.js     # relay protocol, 9 assertions
-# needs the server running on :8787
-node test/lan-browser-test.js    # two headless browsers play a mirrored match, 24 assertions
+npm test          # boots its own server, runs both suites, tears it down
 ```
 
-- `test/lan-browser-test.js` uses `puppeteer-core`, so it needs a Chrome-family
-  binary: set `CHROME_PATH`, else it defaults to `/usr/bin/brave-browser` (Linux)
-  or `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` (macOS).
+That is the whole bar. It runs:
+
+| Suite | Asserts |
+|---|---|
+| `test/lan-server-test.js` | relay protocol — rooms, joins, both directions, full-room rejection, disconnect, `/health` |
+| `test/lan-browser-test.js` | two headless browsers play a mirrored turn cycle; side-swap, HP mirroring, both-direction actions, no page errors |
+
+Both take env overrides (`LAN_URL`, `GAME_URL`) so they can point at any server.
+Individually: `npm run test:relay` / `npm run test:mirror`.
+
+- `test/lan-browser-test.js` uses `puppeteer-core`, which **never downloads a
+  browser** — it auto-detects `brave-browser`/`chromium`/Chrome, and you can force
+  one with `CHROME_PATH`.
 - There is no linter wired up; at minimum run `node --check <file>` on any JS you touch.
-- **A green `lan-browser-test.js` is the bar for touching netcode.**
+- `test/battle-test.js` is a **legacy manual harness** (`npm run harness:battle`) —
+  it only logs a play-through, has no assertions, and needs its own server on :8931.
+  It is not part of `npm test` and is kept for interactive debugging only.
+- **A green `npm test` is the bar for touching netcode.**
 
 ## 6. Conventions
 
