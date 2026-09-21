@@ -628,7 +628,20 @@
     '.net-msg{margin-bottom:3px;word-break:break-word;}',
     '.net-msg .who{color:#ffd700;}',
     '.net-msg.me .who{color:#05ffa1;}',
-    '.net-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:1px;}'
+    '.net-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:1px;}',
+    // Responsive: below the tablet breakpoint the panel must never cover the
+    // menu. It shrinks, caps its own height, and starts collapsed (see boot()).
+    '@media (max-width:860px){',
+    '#net-panel{width:min(92vw,332px);right:8px;bottom:8px;max-height:72vh;}',
+    '#net-body{max-height:calc(72vh - 38px);overflow-y:auto;}',
+    '#net-chat{height:58px;}',
+    '.net-btn{padding:8px 8px;}',
+    '.net-in{padding:8px;}',
+    '}',
+    '@media (max-width:860px){',
+    '#net-panel.collapsed{width:auto;max-width:none;}',
+    '#net-panel.collapsed #net-head{padding:7px 11px;}',
+    '}'
   ].join('');
 
   function buildPanel() {
@@ -772,6 +785,22 @@
     try { Net.myName = localStorage.getItem('eunonymous_playerName') || 'Commander'; } catch (e) {}
     buildPanel();
     Net.mode = 'offline';
+
+    // Below the tablet breakpoint the panel would sit on top of the menu, so it
+    // auto-collapses. Driven by a media-query listener (not a one-shot width read)
+    // so it also reacts to resize/rotation, and it only ever auto-collapses —
+    // an explicit user expand is never fought.
+    var narrow = window.matchMedia('(max-width: 860px)');
+    function applyNarrow(mq) {
+      if (!Net._panel) return;
+      var isNarrow = mq ? mq.matches : narrow.matches;
+      if (isNarrow) {
+        Net._panel.classList.add('collapsed');
+        if (Net._els.toggle) Net._els.toggle.textContent = '◂';
+      }
+    }
+    applyNarrow(null);
+    if (narrow.addEventListener) narrow.addEventListener('change', applyNarrow);
 
     Net._flushTimer = setInterval(function () { if (Net._dirty) Net.flush(); }, 120);
     Net._safetyTimer = setInterval(function () { Net.flush(false); }, 2000);

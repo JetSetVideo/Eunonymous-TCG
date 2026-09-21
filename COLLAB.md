@@ -227,3 +227,66 @@ with an AI-vs-AI batch before it ships.
 `~/OneDrive/Eunonymous`. Filenames are descriptive-but-inconsistent
 (`3ladies-cyborgs-product.jpeg`, `alchemymagic_ai-projection_femine_matrix.webp`).
 They need a naming convention + a manifest before import, not a bulk copy.
+
+---
+
+### 2026-09-21 · hermes · main · economy decision + responsive fix
+
+#### Decision: the opening economy is ZERO-START (GDD §2.1 superseded)
+
+Made under the human's instruction to use best judgement; **pending one-line
+confirmation**. Full reasoning + reversal path: `docs/DECISIONS.md`.
+
+Evidence, strongest first:
+1. The human's own brief describes the build: *"cards of two facing players are mixed
+   ... into a common master deck and **bought by each player at their turn**."*
+2. The GDD contradicts itself — §7.4 describes a shared shop Recruit Phase, which only
+   makes sense with a buy economy.
+3. Turn 1 already grants 2 mana + a deliberately smaller 3-card market — a designed
+   counterweight to the missing head start.
+
+**Consequences:** balance work and the art import are both unblocked.
+**Not done:** the Notion GDD was **not** edited (human's rule: append-only, yellow/blue).
+
+#### Fixed: net panel covered the menu on phones — probe-verified
+
+- **What (before):** at 390×844, **5 menu items were hidden behind the NET PLAY panel**
+  (Friends, Trophies, Leaderboard, Quests, Help). A fixed-position overlay, so
+  `scrollHeight` checks never saw it.
+- **Where:** `js/net.js` injected panel CSS; title screen.
+- **Why:** desktop-positioned floating widget at all sizes.
+- **How:** new probe `menu-reachable-on-small-screens` hit-tests every menu item with
+  `document.elementFromPoint` at phone size. It failed first with the 5 items named.
+- **Fix:** panel shrinks below 860px, caps its own height, and **auto-collapses** into a
+  small `◈ NET PLAY ◂` pill. Driven by a `matchMedia` listener rather than a one-shot
+  width read — the probe caught that the first attempt only collapsed at load, so a
+  resize/orientation change left it expanded. It now only ever auto-collapses; an
+  explicit user expand is never fought.
+- **After:** probe passes. `buttonCount=9, covered=[], offscreen=[]`. Visually confirmed
+  — all 9 items visible, panel collapsed bottom-right.
+
+#### Open — title screen still overflows (HYPOTHESIS, not yet diagnosed)
+
+- **What:** `scrollH=1688` vs `clientH=844` at 390×844 — 2× vertical overflow — and it
+  is still `overflow=Y` on **all 6 viewports**.
+- **Where:** title screen, every size.
+- **Hypothesis (unverified):** inactive `.screen` blocks are not `display:none`, so their
+  content still contributes height. The tutorial screen alone is ~60 lines of rules
+  text. This would explain why the overflow is present even at 1920×1080 where the
+  menu is short.
+- **Why it matters:** every menu item now fits inside the first 844px, so nothing is
+  *blocked* — but the page still scrolls, which violates the "avoid scrolling" goal.
+- **What-next:** @ui-designer — first VERIFY the hypothesis (measure each `.screen`'s
+  contribution to `scrollHeight`), then hide inactive screens properly. Do not fix
+  before verifying; the cause might be the aurora/background layer instead.
+
+**Files:** `docs/DECISIONS.md` (new), `js/net.js`, `tools/qa/harness.js` (new probe).
+
+**State:** `npm test` → 9/9 + 24/24 pass. `npm run qa:probe` → **4/4 probes pass.**
+Full sweep: 0 console errors, 0 failed requests, 0 horizontal overflow, 12 captures.
+
+**Next:** @claude —
+  1. Confirm (or overturn) the economy decision — it is one line either way.
+  2. Verify the title-overflow hypothesis before fixing it.
+  3. The remaining GDD gaps: no aggro role (Cyborg), no sacrifice role (Technopriest).
+  4. Then the art import, which is now unblocked.

@@ -134,6 +134,55 @@ const PROBES = {
     };
   },
 
+  async 'menu-reachable-on-small-screens'(page) {
+    // A fixed-position panel can hide the menu WITHOUT affecting scrollHeight, so
+    // overflow checks alone miss it. Hit-test every menu item with elementFromPoint
+    // at phone size and report anything covered or pushed off-screen.
+    await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 3 });
+    await sleep(600);
+    const r = await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('.title-content button, .title-content a'));
+      const covered = [];
+      const offscreen = [];
+      for (const b of btns) {
+        const label = (b.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 26);
+        const rect = b.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) continue;
+        if (rect.bottom < 0 || rect.top > window.innerHeight) { offscreen.push(label); continue; }
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const el = document.elementFromPoint(cx, cy);
+        if (!el) { covered.push({ label, by: '(nothing)' }); continue; }
+        if (b === el || b.contains(el) || el.contains(b)) continue;
+        const panel = el.closest && el.closest('#net-panel');
+        covered.push({ label, by: panel ? 'net-panel' : (el.id || el.className || el.tagName) });
+      }
+      return {
+        buttonCount: btns.length,
+        covered,
+        offscreen,
+        scrollH: document.documentElement.scrollHeight,
+        clientH: document.documentElement.clientHeight,
+      };
+    });
+    const problems = [];
+    const byPanel = r.covered.filter((c) => c.by === 'net-panel');
+    if (byPanel.length) {
+      problems.push(byPanel.length + ' menu item(s) hidden behind the net panel: ' +
+        byPanel.map((c) => c.label).join(', '));
+    }
+    const other = r.covered.filter((c) => c.by !== 'net-panel');
+    if (other.length) {
+      problems.push(other.length + ' menu item(s) covered by something else: ' +
+        other.map((c) => c.label + ' (' + c.by + ')').join(', '));
+    }
+    if (r.offscreen.length) {
+      problems.push(r.offscreen.length + ' menu item(s) pushed off-screen (needs scrolling): ' +
+        r.offscreen.join(', '));
+    }
+    return { probe: 'menu-reachable-on-small-screens', observed: r, problems };
+  },
+
   async 'battle-log-matches-history'(page) {
     // The log panel must render exactly the current match's events.
     const r = await page.evaluate(() => {
