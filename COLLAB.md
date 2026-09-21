@@ -393,3 +393,100 @@ unreliable. **What-next:** collapse them onto `VersionInfo.label()`.
 Extend it to the battle screen (`#battle-screen` has `overflow: hidden` but its inner
 rows were never measured) and to the modals. Then Phase 2 (the Quick Battle match-setup
 screen) has a clean, contained surface to build into.
+
+---
+
+### 2026-09-21 · hermes · main · Battle flow, factions, shop, login transition
+
+**Did:** Built the vertical slice the brief leads with — the Battle flow — plus the
+faction identity layer it depends on. One complete, verified slice rather than
+fifteen started.
+
+#### Faction layer (`js/factions.js`, `css/factions.css`)
+
+- **What:** The Notion "Factions" page yields exactly **9** factions and they ARE the
+  game's 9 Characters: Synthetic, Memetic, Refinist, Technopriest, Cyborg, Biopure,
+  Ethereal, Organizer, Schemist — with taglines already matching `characters.js`.
+- **Where:** `js/factions.js` (registry + SVG marks + palettes),
+  `css/factions.css` (motion + chips + card backs).
+- **How:** each faction now carries a colour code (primary/deep/glow/edge) and one of
+  the nine MATERIAL STYLES, assigned 1:1: Synthetic→metal, Memetic→glitchy,
+  Refinist→bronze, Technopriest→material, Cyborg→energy, Biopure→organic,
+  Ethereal→virtual, Organizer→fluid, Schemist→atomic.
+- **Icons:** inline animated SVG (no icon font, no image request, themes via
+  `currentColor`). Each style has its own motion — metal sweeps, glitchy
+  misregisters, atomic orbits, fluid flows — all **transform/opacity only** (compositor
+  friendly) and disabled under `prefers-reduced-motion`.
+- **Also from Notion:** the faction axis vocabulary is recorded per faction
+  (eternity/immediate, totalitarian/libertarian, biology/technology, …) for future
+  balance positioning.
+
+#### Battle flow — the brief's headline
+
+- **Before:** `⚡ Quick Battle` jumped straight into a duel with a random opponent.
+  Field picking lived on a separate `🗺️ Pick Field` button.
+- **After:** `⚔️ Battle` → **setup screen** → **1s login transition** → match.
+  - Modes: **1v1 PvP · Player vs AI · Conflict (tournament) · AI vs AI (spectator)**.
+  - **AI profiles with intelligence degrees**: 6 opponents (Rookie → Archon), each with
+    rank, MMR, favourite factions, tactical description, `aiStyle` and a 1–5 star
+    intelligence shown in the UI.
+  - **Field vote**: both sides vote; agreement takes the field, disagreement rolls
+    between the two. (Previously a raw picker.)
+  - **Pick Field button REMOVED** — folded into setup, as instructed.
+  - **Shop button added** to the home menu.
+
+#### Shop + profile (`js/setup.js`)
+
+- **What:** 9 faction card backs, **free** — unlocked by winning **one** match with
+  that faction, per the brief.
+- **Where:** `#shop-screen`; profile in `localStorage['eunonymous_profile']` (schemaVersion,
+  gameVersion, W/L, per-faction wins, unlocks, last-50 match history).
+- **Hooked:** `handleVictory` / `handleDefeat` now call `ui.setupRecordResult()`, which
+  updates the profile and awards the unlock. Unlock is announced via toast.
+- **Honest limitation:** `conflict` and `aivai` are **selectable and labelled
+  "prototype"** in the UI — the engine still resolves them as a 1v1 duel. Making AI
+  play BOTH sides needs `aiBankPhase/aiPlayCards/aiAttack` generalised off `this.enemy`,
+  which is real engine work I did not fake.
+
+#### Verification (all at the committed state)
+
+- **New probe `battle-setup-flow`** — asserts BATTLE opens setup, 4 mode tiles, field
+  vote tiles, AI intelligence panel, mode selection sticks, AI cycles, vote registers,
+  the login overlay appears, `elapsedMs >= 1000`, the match starts, the overlay hides.
+  Observed: `elapsedMs: 1097, loginSeen: true, finalScreen: "battle",
+  gameState: "battle", aiAfterCycle: "tactician"`. **PASS.**
+- **`no-page-scroll` EXTENDED** to sweep the new setup + shop screens, not just the
+  title. Required first extracting a shared `measureLayout()`/`overflowProblems()` pair
+  so the measurement is not duplicated.
+  Observed: `phone-portrait/setup 844/844`, `laptop/setup 768/768`,
+  `phone-portrait/shop 844/844`, `laptop/shop 768/768` — **all overY=0 overX=0.**
+- 6/6 probes pass; `npm test` 26/26; 6 new captures, 0 console errors, 0 overflow.
+
+#### Defects found and fixed during the visual review
+
+- **Shop grid wrapped 8+1** — `auto-fit` produced 8 columns at laptop width, leaving
+  Schemist alone on a ragged second row. Fixed with explicit counts that divide 9
+  (9 across ≥1180px, else 3×3).
+- **The `login` screenshot flow captured the wrong thing** — it fired the real
+  transition, but the harness measures FPS for ~1.5s before shooting, so the 1s
+  overlay was already gone and the shot showed the battle screen. The flow now drives
+  `Login.show()` directly with a long duration to hold it open; the real 1s length is
+  asserted by `battle-setup-flow` instead. **Lesson: a screenshot flow that lets a
+  transient state expire silently produces a picture of the wrong screen.**
+
+**Files:** `js/factions.js`, `js/setup.js`, `css/factions.css`, `css/setup.css` (all new);
+`index.html`, `tools/qa/harness.js`.
+
+**Broken:** nothing known. `conflict`/`aivai` are labelled prototypes, not silently wrong.
+
+**Next:** @claude — still outstanding from the brief, roughly in dependency order:
+  1. Card mechanics: sacrifice / combine / exclude-from-graveyard (engine work).
+  2. World lore page rebuild from Notion (faction names only + the new faction marks).
+  3. Deck Builder: 2.5×3.5 card geometry + card history + premade decks section.
+  4. Leaderboard categories (best cards, most played, faction/character stats).
+  5. Quests page + profile-persisted quest data.
+  6. Help page refresh.
+  7. Icons beyond the factions (menu/UI) in the same animated-SVG style.
+  8. AI vs AI + Conflict real engine support (generalise the AI off `this.enemy`).
+  Do NOT batch these — each deserves its own probe and screenshot comparison, as this
+  slice did.

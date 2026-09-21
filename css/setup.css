@@ -1,0 +1,233 @@
+/* ==========================================================================
+   Eunonymous-TCG — Battle setup, Shop, Login transition  (css/setup.css)
+   Loaded AFTER main.css + factions.css.
+   Every metric is parametric (clamp with vh AND vw terms) because these screens
+   are subject to the `no-page-scroll` probe: they must fit 100vh x 100vw at all
+   6 viewports with zero scrolling. Retune the variables, not the rules.
+   ========================================================================== */
+
+#setup-screen, #shop-screen {
+  --s-gap:      clamp(5px, 1.1vh, 16px);
+  --s-pad:      clamp(6px, 1.4vh, 20px);
+  --s-title:    clamp(.9rem, min(2.6vh, 3.4vw), 1.7rem);
+  --s-label:    clamp(.56rem, min(1.15vh, 2.2vw), .78rem);
+  --s-body:     clamp(.6rem,  min(1.35vh, 2.4vw), .88rem);
+  --s-card-min: clamp(96px, 15vh, 190px);
+  align-items: center;
+  justify-content: flex-start;
+  padding: var(--s-pad);
+  overflow: hidden;
+}
+
+/* ---- header row -------------------------------------------------------- */
+.setup-head {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; gap: var(--s-gap); margin-bottom: var(--s-gap);
+  flex: 0 0 auto;
+}
+.setup-head h2 {
+  font-family: var(--font-title); font-size: var(--s-title);
+  letter-spacing: .14em; text-transform: uppercase; margin: 0;
+  background: linear-gradient(120deg, var(--accent-cyan), var(--accent-purple));
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+
+/* ---- body: 3 columns (you | field/mode | opponent) -------------------- */
+.setup-body {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(0,1.25fr) minmax(0,1fr);
+  gap: var(--s-gap);
+  width: 100%; flex: 1 1 auto; min-height: 0;
+}
+.setup-col {
+  display: flex; flex-direction: column; gap: var(--s-gap);
+  min-height: 0; min-width: 0;
+}
+.setup-panel {
+  border: 1px solid rgba(255,255,255,.09);
+  background: rgba(255,255,255,.025);
+  border-radius: 10px;
+  padding: var(--s-pad);
+  display: flex; flex-direction: column; gap: calc(var(--s-gap) * .6);
+  min-height: 0;
+}
+.setup-panel > h3 {
+  margin: 0; font-family: var(--font-title);
+  font-size: var(--s-label); letter-spacing: .16em; text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* ---- mode tiles -------------------------------------------------------- */
+.mode-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: calc(var(--s-gap) * .7); }
+.mode-tile {
+  position: relative; cursor: pointer; text-align: left;
+  padding: calc(var(--s-pad) * .7) calc(var(--s-pad) * .8);
+  border-radius: 9px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(0,0,0,.35);
+  color: var(--text-primary);
+  font-family: var(--font-body); font-size: var(--s-body);
+  transition: transform .18s cubic-bezier(.4,0,.2,1), border-color .18s, background .18s, box-shadow .18s;
+}
+.mode-tile:hover { transform: translateY(-2px); border-color: var(--accent-cyan); }
+.mode-tile.selected {
+  border-color: var(--accent-cyan);
+  background: rgba(0,217,255,.10);
+  box-shadow: 0 0 0 1px var(--accent-cyan) inset, 0 0 20px -6px var(--accent-cyan);
+}
+.mode-tile b { display: block; font-size: calc(var(--s-body) * 1.06); letter-spacing: .04em; }
+.mode-tile span { display: block; opacity: .62; font-size: calc(var(--s-body) * .78); line-height: 1.3; margin-top: 2px; }
+.mode-tile .mt-icon { font-size: calc(var(--s-body) * 1.25); margin-bottom: 2px; display: block; }
+
+/* ---- selectable rows (deck, ai) --------------------------------------- */
+.setup-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: calc(var(--s-gap) * .6);
+  padding: calc(var(--s-pad) * .5) calc(var(--s-pad) * .6);
+  border-radius: 8px; border: 1px solid rgba(255,255,255,.08);
+  background: rgba(0,0,0,.28);
+  font-size: var(--s-body);
+}
+.setup-row .lbl { opacity: .6; letter-spacing: .08em; text-transform: uppercase; font-size: var(--s-label); }
+.setup-row .val { font-weight: 700; text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.setup-row select, .setup-row button {
+  font: inherit; color: var(--text-primary);
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.15);
+  border-radius: 6px; padding: 3px 8px; cursor: pointer;
+}
+
+/* ---- avatar cards ------------------------------------------------------ */
+.who-card { display: flex; align-items: center; gap: calc(var(--s-gap) * .8); }
+.who-avatar {
+  width: clamp(38px, 6.2vh, 74px); height: clamp(38px, 6.2vh, 74px);
+  border-radius: 12px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  font-size: clamp(1rem, 3.4vh, 2.1rem);
+  border: 1px solid var(--fx-edge, rgba(255,255,255,.2));
+  background: radial-gradient(circle at 40% 30%, color-mix(in srgb, var(--fx-primary) 40%, transparent), transparent 65%), #06090f;
+}
+.who-name { font-family: var(--font-title); font-size: var(--s-body); letter-spacing: .06em; }
+.who-meta { font-size: var(--s-label); opacity: .6; }
+
+/* ---- field vote -------------------------------------------------------- */
+.field-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(clamp(64px, 9vw, 118px), 1fr));
+  gap: calc(var(--s-gap) * .6); overflow: hidden;
+}
+.field-tile {
+  cursor: pointer; border-radius: 8px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,.12);
+  background: #06090f; padding: 0;
+  transition: transform .18s cubic-bezier(.4,0,.2,1), border-color .18s;
+}
+.field-tile:hover { transform: translateY(-2px); }
+.field-tile.selected { border-color: var(--accent-cyan); box-shadow: 0 0 16px -4px var(--accent-cyan); }
+.field-tile .ft-swatch { height: clamp(22px, 3.4vh, 46px); }
+.field-tile .ft-name { font-size: var(--s-label); padding: 3px 5px; letter-spacing: .04em; }
+.vote-note { font-size: var(--s-label); opacity: .55; }
+
+/* ---- footer actions ---------------------------------------------------- */
+.setup-actions {
+  display: flex; gap: var(--s-gap); align-items: center; justify-content: center;
+  width: 100%; flex: 0 0 auto; margin-top: var(--s-gap);
+}
+.setup-actions .btn-primary {
+  font-family: var(--font-title); letter-spacing: .16em; text-transform: uppercase;
+  padding: calc(var(--s-pad) * .7) clamp(18px, 4vw, 54px);
+  font-size: clamp(.72rem, min(1.7vh, 2.6vw), 1.05rem);
+  border-radius: 9px; cursor: pointer;
+  color: #04121a; font-weight: 800;
+  background: linear-gradient(120deg, var(--accent-cyan), #8ef7ff);
+  border: none;
+  box-shadow: 0 0 26px -6px var(--accent-cyan);
+  transition: transform .16s cubic-bezier(.4,0,.2,1), box-shadow .16s;
+}
+.setup-actions .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 34px -4px var(--accent-cyan); }
+.setup-actions .btn-primary:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ---- shop -------------------------------------------------------------- */
+/* 9 items: the column count must DIVIDE 9 or the last row is ragged. auto-fit
+   gave 8+1 at laptop width, so use explicit counts — 9 across when there is room,
+   otherwise a clean 3x3. */
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: var(--s-gap); width: 100%; overflow: hidden;
+}
+@media (max-width: 1180px) {
+  .shop-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.shop-item { display: flex; flex-direction: column; gap: 5px; align-items: center; }
+.shop-item .faction-cardback { width: 100%; }
+.shop-item .si-name {
+  font-size: var(--s-label); letter-spacing: .06em; text-align: center;
+  color: var(--fx-primary, var(--text-primary));
+}
+.shop-item .si-state { font-size: calc(var(--s-label) * .92); opacity: .7; text-align: center; }
+.shop-item .si-state.unlocked { color: var(--accent-green, #05ffa1); }
+.shop-item button {
+  font: inherit; font-size: var(--s-label);
+  padding: 3px 10px; border-radius: 6px; cursor: pointer;
+  background: rgba(0,217,255,.12); border: 1px solid rgba(0,217,255,.4); color: var(--text-primary);
+}
+.shop-item button:disabled { opacity: .4; cursor: default; }
+
+/* ==========================================================================
+   LOGIN / LOADING TRANSITION  (1s, background artwork)
+   ========================================================================== */
+#login-overlay {
+  position: fixed; inset: 0; z-index: 2147483000;
+  display: none; align-items: center; justify-content: center;
+  background-size: cover; background-position: center;
+  background-color: #04060c;
+}
+#login-overlay.active { display: flex; }
+#login-overlay .lo-scrim {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,.25) 0%, rgba(0,0,0,.78) 70%),
+              linear-gradient(180deg, rgba(4,6,12,.55), rgba(4,6,12,.9));
+}
+#login-overlay .lo-inner {
+  position: relative; text-align: center; display: flex; flex-direction: column;
+  align-items: center; gap: clamp(8px, 1.8vh, 22px);
+  animation: loIn .5s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes loIn { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+#login-overlay .lo-mark { animation: loPulse 1.6s ease-in-out infinite; }
+@keyframes loPulse { 0%,100% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(0,217,255,.4)); } 50% { transform: scale(1.06); filter: drop-shadow(0 0 26px rgba(0,217,255,.85)); } }
+#login-overlay .lo-title {
+  font-family: var(--font-title); font-weight: 900;
+  font-size: clamp(1.4rem, min(6vh, 7vw), 4rem);
+  letter-spacing: .2em; text-transform: uppercase;
+  background: linear-gradient(120deg, var(--accent-purple), var(--accent-cyan), #fff);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+#login-overlay .lo-vs {
+  font-family: var(--font-body); letter-spacing: .18em; text-transform: uppercase;
+  font-size: clamp(.6rem, min(1.5vh, 2.4vw), .95rem);
+  color: var(--text-secondary);
+}
+#login-overlay .lo-bar {
+  width: clamp(180px, 34vw, 460px); height: 4px; border-radius: 999px;
+  background: rgba(255,255,255,.12); overflow: hidden;
+}
+#login-overlay .lo-bar > i {
+  display: block; height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));
+  animation: loFill 1s linear forwards;
+}
+@keyframes loFill { from { width: 0%; } to { width: 100%; } }
+#login-overlay .lo-status {
+  font-family: var(--font-body); font-size: clamp(.55rem, min(1.2vh, 2vw), .78rem);
+  letter-spacing: .12em; color: var(--text-secondary); text-transform: uppercase;
+}
+
+/* Narrow: stack the setup columns instead of scrolling */
+@media (max-width: 760px) {
+  .setup-body { grid-template-columns: minmax(0,1fr); }
+  .setup-col.center { order: -1; }
+  .shop-grid { grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #login-overlay .lo-inner, #login-overlay .lo-mark, #login-overlay .lo-bar > i { animation-duration: .01ms !important; }
+}

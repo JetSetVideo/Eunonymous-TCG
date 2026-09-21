@@ -67,7 +67,104 @@ const FLOWS = {
       await sleep(400);
     },
   },
+  setup: {
+    label: 'Battle setup (mode / deck / opponent / field vote)',
+    run: async (page) => {
+      await page.evaluate(() => ui.openBattleSetup());
+      await sleep(600);
+    },
+  },
+  shop: {
+    label: 'Shop — faction card backs',
+    run: async (page) => {
+      await page.evaluate(() => ui.openShop());
+      await sleep(600);
+    },
+  },
+  login: {
+    label: 'Login / loading transition (held so it can be captured)',
+    run: async (page) => {
+      // Drive the SAME render path the real transition uses, but hold it open —
+      // the harness measures FPS for ~1.5s before shooting, so a 1s overlay would
+      // already be gone. The real 1s duration is asserted by battle-setup-flow.
+      await page.evaluate(() => {
+        const fac = ui.selectedCharacter || 'Cyborg';
+        SetupRegistry.Login.show({
+          title: 'Eunonymous',
+          subtitle: 'Commander  vs  Adept  ·  Future Odessa',
+          status: 'Entering the vault…',
+          faction: fac,
+          ms: 60000,
+        });
+      });
+      await sleep(900);
+    },
+  },
 };
+
+// ---------------------------------------------------------------------------
+// Shared layout measurement — runs INSIDE the page, reused by every overflow check.
+// The directive requires the whole UI to sit inside 100vh x 100vw with zero
+// scrolling, so we measure BOTH the page and the active screen, on both axes.
+// ---------------------------------------------------------------------------
+function measureLayout() {
+  const de = document.documentElement;
+  const vh = window.innerHeight, vw = window.innerWidth;
+  const act = document.querySelector('.screen.active');
+  const offenders = [];
+  document.querySelectorAll('body *').forEach((el) => {
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') return;
+    if (cs.position === 'fixed') return;              // fixed overlays don't scroll
+    const b = el.getBoundingClientRect();
+    if (b.height === 0 && b.width === 0) return;
+    const overY = Math.round(b.bottom - vh);
+    const overX = Math.round(b.right - vw);
+    if (overY <= 4 && overX <= 4) return;
+    let sel = el.tagName.toLowerCase();
+    if (el.id) sel = '#' + el.id;
+    else if (typeof el.className === 'string' && el.className.trim()) {
+      sel = '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.');
+    }
+    offenders.push({ sel, overY, overX, h: Math.round(b.height), w: Math.round(b.width) });
+  });
+  offenders.sort((a, b) => (b.overY + b.overX) - (a.overY + a.overX));
+  const seen = new Set(); const top = [];
+  for (const o of offenders) {
+    if (seen.has(o.sel)) continue;
+    seen.add(o.sel); top.push(o);
+    if (top.length >= 8) break;
+  }
+  return {
+    overflowY: de.scrollHeight - de.clientHeight,
+    overflowX: de.scrollWidth - de.clientWidth,
+    scrollH: de.scrollHeight, clientH: de.clientHeight,
+    activeScreen: act ? act.id : null,
+    activeOverflowY: act ? act.scrollHeight - act.clientHeight : 0,
+    activeOverflowX: act ? act.scrollWidth - act.clientWidth : 0,
+    activeScrollH: act ? act.scrollHeight : 0,
+    activeClientH: act ? act.clientHeight : 0,
+    top,
+  };
+}
+
+/** Turn a measurement into human-readable failure strings (empty = pass). */
+function overflowProblems(label, r) {
+  const out = [];
+  if (r.overflowY > 1) {
+    out.push(label + ': PAGE vertical overflow ' + r.overflowY + 'px' +
+      (r.top.length ? ' | deepest: ' + r.top.slice(0, 4).map((o) => o.sel + ' +' + o.overY + 'px').join(', ') : ''));
+  }
+  if (r.overflowX > 1) out.push(label + ': PAGE horizontal overflow ' + r.overflowX + 'px');
+  if (r.activeOverflowY > 1) {
+    out.push(label + ': SCREEN #' + r.activeScreen + ' scrolls internally by ' + r.activeOverflowY +
+      'px (' + r.activeScrollH + ' vs ' + r.activeClientH + ')');
+  }
+  if (r.activeOverflowX > 1) {
+    out.push(label + ': SCREEN #' + r.activeScreen + ' overflows horizontally by ' + r.activeOverflowX + 'px');
+  }
+  return out;
+}
 
 // ---------------------------------------------------------------------------
 // Bug probes — assertions about invariants. These are the regression net.
@@ -190,76 +287,98 @@ const PROBES = {
     const problems = [];
     const observed = {};
 
+    // Every reachable surface must fit, not just the title screen. The title is
+    // swept at all six sizes; the other screens at the two hardest ones, so the
+    // probe stays fast enough to run on every change.
+    const EXTRA_SCREENS = [
+      { name: 'setup', open: () => { ui.openBattleSetup(); } },
+      { name: 'shop',  open: () => { ui.openShop(); } },
+    ];
+
     for (const vpName of ['phone-portrait', 'phone-landscape', 'tablet-portrait',
                           'tablet-landscape', 'laptop', 'desktop']) {
       const vp = VIEWPORTS[vpName];
       await page.setViewport({ width: vp.width, height: vp.height, deviceScaleFactor: vp.dpr });
       await sleep(450);
-
-      const r = await page.evaluate(() => {
-        const de = document.documentElement;
-        const vh = window.innerHeight;
-        const vw = window.innerWidth;
-        const act = document.querySelector('.screen.active');
-        const offenders = [];
-        document.querySelectorAll('body *').forEach((el) => {
-          const cs = getComputedStyle(el);
-          if (cs.display === 'none' || cs.visibility === 'hidden') return;
-          if (cs.position === 'fixed') return;           // fixed overlays don't scroll
-          const b = el.getBoundingClientRect();
-          if (b.height === 0 && b.width === 0) return;
-          const overY = Math.round(b.bottom - vh);
-          const overX = Math.round(b.right - vw);
-          if (overY <= 4 && overX <= 4) return;
-          let sel = el.tagName.toLowerCase();
-          if (el.id) sel = '#' + el.id;
-          else if (typeof el.className === 'string' && el.className.trim()) {
-            sel = '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.');
-          }
-          offenders.push({ sel, overY, overX, h: Math.round(b.height), w: Math.round(b.width) });
-        });
-        offenders.sort((a, b) => (b.overY + b.overX) - (a.overY + a.overX));
-        const seen = new Set(); const top = [];
-        for (const o of offenders) {
-          if (seen.has(o.sel)) continue;
-          seen.add(o.sel); top.push(o);
-          if (top.length >= 8) break;
-        }
-        return {
-          overflowY: de.scrollHeight - de.clientHeight,
-          overflowX: de.scrollWidth - de.clientWidth,
-          scrollH: de.scrollHeight, clientH: de.clientHeight,
-          scrollW: de.scrollWidth, clientW: de.clientWidth,
-          activeScreen: act ? act.id : null,
-          activeOverflowY: act ? act.scrollHeight - act.clientHeight : 0,
-          activeOverflowX: act ? act.scrollWidth - act.clientWidth : 0,
-          activeScrollH: act ? act.scrollHeight : 0,
-          activeClientH: act ? act.clientHeight : 0,
-          top,
-        };
-      });
-
+      const r = await page.evaluate(measureLayout);
       observed[vpName] = r;
-      if (r.overflowY > 1) {
-        problems.push(vpName + ': PAGE vertical overflow ' + r.overflowY + 'px (' +
-          r.scrollH + ' vs ' + r.clientH + ')' +
-          (r.top.length ? ' | deepest: ' + r.top.slice(0, 4).map((o) => o.sel + ' +' + o.overY + 'px').join(', ') : ''));
-      }
-      if (r.overflowX > 1) {
-        problems.push(vpName + ': PAGE horizontal overflow ' + r.overflowX + 'px');
-      }
-      // The directive requires the whole UI to sit inside the viewport, so the
-      // active screen must not scroll internally either.
-      if (r.activeOverflowY > 1) {
-        problems.push(vpName + ': ACTIVE SCREEN #' + r.activeScreen + ' scrolls internally by ' +
-          r.activeOverflowY + 'px (' + r.activeScrollH + ' vs ' + r.activeClientH + ')');
-      }
-      if (r.activeOverflowX > 1) {
-        problems.push(vpName + ': ACTIVE SCREEN #' + r.activeScreen + ' overflows horizontally by ' +
-          r.activeOverflowX + 'px');
+      problems.push(...overflowProblems(vpName, r));
+    }
+
+    for (const vpName of ['phone-portrait', 'laptop']) {
+      const vp = VIEWPORTS[vpName];
+      for (const sc of EXTRA_SCREENS) {
+        await page.goto(GAME_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.setViewport({ width: vp.width, height: vp.height, deviceScaleFactor: vp.dpr });
+        await waitFor(page, () => typeof ui !== 'undefined' && !!ui, 'ui ready');
+        await sleep(300);
+        await page.evaluate(sc.open);
+        await sleep(450);
+        const key = vpName + '/' + sc.name;
+        const r = await page.evaluate(measureLayout);
+        observed[key] = r;
+        problems.push(...overflowProblems(key, r));
       }
     }
+
     return { probe: 'no-page-scroll', observed, problems };
+  },
+
+  async 'battle-setup-flow'(page) {
+    // BATTLE must route: setup screen -> 1s login transition -> live match.
+    // Not straight into a duel, and never skipping the setup.
+    const r = await page.evaluate(async () => {
+      const out = { steps: [] };
+      ui.openBattleSetup();
+      out.screenAfterOpen = ui.currentScreen;
+
+      const setup = document.getElementById('setup-screen');
+      out.modeTiles = setup ? setup.querySelectorAll('.mode-tile[onclick*="setupSetMode"]').length : 0;
+      out.fieldTiles = setup ? setup.querySelectorAll('.field-tile').length : 0;
+      out.aiPanel = !!(setup && /Intelligence/.test(setup.textContent));
+
+      ui.setupSetMode('conflict');
+      out.modeAfterSet = SetupRegistry.Setup.mode;
+      ui.setupSetMode('ai');
+      out.modeBackToAi = SetupRegistry.Setup.mode;
+      ui.setupCycleAI();
+      out.aiAfterCycle = SetupRegistry.Setup.aiId;
+      ui.setupVoteField('odessa');
+      out.myVote = SetupRegistry.Setup.myField;
+
+      // Watch for the login overlay becoming active, then run the confirm.
+      out.loginSeen = false;
+      const obs = new MutationObserver(() => {
+        const el = document.getElementById('login-overlay');
+        if (el && el.classList.contains('active')) out.loginSeen = true;
+      });
+      obs.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['class'] });
+
+      const t0 = performance.now();
+      await ui.setupConfirm();
+      out.elapsedMs = Math.round(performance.now() - t0);
+      obs.disconnect();
+
+      out.finalScreen = ui.currentScreen;
+      out.gameState = ui.game ? ui.game.state : null;
+      out.overlayHidden = !document.getElementById('login-overlay').classList.contains('active');
+      return out;
+    });
+
+    const problems = [];
+    if (r.screenAfterOpen !== 'setup') problems.push('BATTLE did not open the setup screen (got "' + r.screenAfterOpen + '")');
+    if (r.modeTiles !== 4) problems.push('expected 4 mode tiles (1v1/ai/conflict/aivai), found ' + r.modeTiles);
+    if (r.fieldTiles < 4) problems.push('expected field vote tiles, found ' + r.fieldTiles);
+    if (!r.aiPanel) problems.push('AI intelligence panel missing from setup');
+    if (r.modeAfterSet !== 'conflict') problems.push('mode selection did not stick (got ' + r.modeAfterSet + ')');
+    if (r.modeBackToAi !== 'ai') problems.push('mode did not return to ai (got ' + r.modeBackToAi + ')');
+    if (r.aiAfterCycle === 'adept') problems.push('AI cycle did not change the opponent');
+    if (r.myVote !== 'odessa') problems.push('field vote did not register (got ' + r.myVote + ')');
+    if (!r.loginSeen) problems.push('1s login transition never appeared');
+    if (r.elapsedMs < 950) problems.push('transition was ' + r.elapsedMs + 'ms, expected >= 1000ms');
+    if (r.gameState !== 'battle') problems.push('match did not start (state=' + r.gameState + ')');
+    if (!r.overlayHidden) problems.push('login overlay stayed visible after the transition');
+    return { probe: 'battle-setup-flow', observed: r, problems };
   },
 
   async 'battle-log-matches-history'(page) {
