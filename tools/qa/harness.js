@@ -23,7 +23,9 @@
 
 const fs = require('fs');
 const path = require('path');
-const puppeteer = require('puppeteer-core');
+// puppeteer-core >=25 is ESM-only; load it lazily so this file stays CommonJS
+// and works on Node versions without require(esm).
+let puppeteer;
 
 const ROOT = path.resolve(__dirname, '../..');
 const OUT = path.join(ROOT, 'tools/qa/out');
@@ -328,6 +330,7 @@ const PROBES = {
     // BATTLE must route: setup screen -> 1s login transition -> live match.
     // Not straight into a duel, and never skipping the setup.
     const r = await page.evaluate(async () => {
+  puppeteer = (await import('puppeteer-core')).default;
       const out = { steps: [] };
       ui.openBattleSetup();
       out.screenAfterOpen = ui.currentScreen;

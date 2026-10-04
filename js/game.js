@@ -801,8 +801,9 @@ class GameEngine {
     this.endTurn(this.enemy);
   }
 
-  aiPlayCards() {
+  aiPlayCards(depth) {
     var self = this;
+    var handBefore = this.enemy.hand.length;
     var style = this.enemy.aiStyle || this._enemyStyle || 'balanced';
 
     // Context: current board state
@@ -993,13 +994,17 @@ class GameEngine {
       break; // break to re-evaluate from scratch
     }
 
-    // Recurse if we still have power and playable cards
-    if (this.enemy.power > 0 && this.state === 'battle') {
+    // Recurse if we still have power and playable cards — but ONLY if this pass
+    // actually played something. If the AI holds an affordable card it cannot place
+    // (no free slot / negative score), the old code recursed forever with unchanged
+    // state: "Maximum call stack size exceeded", which froze the turn handoff.
+    var handAfter = this.enemy.hand.length;
+    if (this.enemy.power > 0 && this.state === 'battle' && handAfter < handBefore && (depth || 0) < 12) {
       var stillPlayable = this.enemy.hand.filter(function(c) {
         return self.getEffectiveCost(self.enemy, c) <= self.enemy.power;
       });
       if (stillPlayable.length > 0) {
-        this.aiPlayCards();
+        this.aiPlayCards((depth || 0) + 1);
       }
     }
   }
@@ -1219,6 +1224,12 @@ class GameEngine {
       this.log(card.name + ' has Overclock — can attack twice!');
     }
 
+    // One-shot cards (Spell/Action) never displace a card already in the slot.
+    var oneShot = card.type === 'Spell' || card.type === 'Action';
+    var occupied = (slot.zone === 'battle' && player.field.battle[slot.index]) ||
+                   (slot.zone === 'base' && player.field.base[slot.index]);
+    if (oneShot && occupied) slot = { zone: 'none', index: -1 };
+
     if (slot.zone === 'battle') player.field.battle[slot.index] = cardInstance;
     else if (slot.zone === 'base') player.field.base[slot.index] = cardInstance;
     else if (slot.zone === 'trap') player.field.trap[slot.index] = cardInstance;
@@ -1286,9 +1297,13 @@ class GameEngine {
 
     this.emit('playCardEffects', { player: player, card: cardInstance, slot: slot });
 
-    if (card.type === 'Spell') {
-      this.applySpellEffect(player, cardInstance);
-      if (slot.zone === 'battle') player.field.battle[slot.index] = null;
+    // Spells and Actions are one-shot: resolve, then leave the field. Actions used to
+    // stay in the battle slot forever (and the AI drops them into slot 0, which could
+    // overwrite one of its own creatures).
+    if (card.type === 'Spell' || card.type === 'Action') {
+      if (card.type === 'Spell') this.applySpellEffect(player, cardInstance);
+      if (slot.zone === 'battle' && player.field.battle[slot.index] === cardInstance) player.field.battle[slot.index] = null;
+      if (slot.zone === 'base' && player.field.base[slot.index] === cardInstance) player.field.base[slot.index] = null;
       player.field.graveyard.push(cardInstance);
     }
 
@@ -1783,8 +1798,14 @@ class GameEngine {
     var self = this;
     Object.keys(comboIds).forEach(function(id) {
       var count = comboIds[id];
-      var cards = battleCards.filter(function(c) { return c.comboId === id; });
-      if (count >= 2) {
+      // checkCombos runs after EVERY play, so the bonus must only apply to cards that
+      // have not received it yet — it used to re-stack (+2 ATK per extra card played,
+      // a turn-4 Storm Shielder hit for 14).
+      var flag = '_combo_' + id;
+      var allCards = battleCards.filter(function(c) { return c.comboId === id; });
+      var cards = allCards.filter(function(c) { return !c[flag]; });
+      if (count >= 2 && cards.length) cards.forEach(function(c) { c[flag] = true; });
+      if (count >= 2 && cards.length) {
         if (id === 'rush') {
           cards.forEach(function(c) { c.currentAtk = (c.currentAtk || c.attack) + 2; c.canAttack = true; });
           self.log('⚡ TWIN STRIKE! Rush cards +2 ATK + Charge!');
@@ -1808,7 +1829,8 @@ class GameEngine {
           self.emit('combo', { type: 'Ancient Accord', cards: cards, rarity: 'legendary' });
         }
       }
-      if (count >= 3 && id === 'gold') {
+      if (count >= 3 && id === 'gold' && player._goldRushTurn !== player.turn) {
+        player._goldRushTurn = player.turn;   // once per turn, not once per card played
         player.power = Math.min(player.maxPower, player.power + 2);
         self.log('💰 GOLD RUSH! +2 Power!');
         self.emit('combo', { type: 'Gold Rush', cards: cards, rarity: 'epic' });
@@ -1857,7 +1879,23 @@ class GameEngine {
       targetPlayer = target;
     } else {
       targetCard = target;
-      targetPlayer = this.player.field.battle.indexOf(targetCard) >= 0 ? this.player : this.enemy;
+      // Owner lookup must cover every zone. It used to check only player.field.battle,
+      // so attacking a card in the player's BASE row (structures/gear) resolved it as
+      // an enemy card — overkill then spilled onto the attacker's OWN base.
+      var ownedBy = function (p) {
+        return p.field.battle.indexOf(targetCard) >= 0 || p.field.base.indexOf(targetCard) >= 0 ||
+               (p.field.trap && p.field.trap.indexOf(targetCard) >= 0);
+      };
+      if (ownedBy(this.player)) targetPlayer = this.player;
+      else if (ownedBy(this.enemy)) targetPlayer = this.enemy;
+      else {
+        // Stale reference (card already destroyed / left play). Resolving it used to
+        // default the owner to the enemy and apply negative-HP "overkill" to the
+        // wrong base. Cancel the attack and give the attack back.
+        if (attackerCard.attacksLeft !== undefined) attackerCard.attacksLeft++;
+        this.emit('error', { message: (targetCard.name || 'Target') + ' is no longer on the field.' });
+        return;
+      }
     }
 
     if (targetCard && targetPlayer) {
@@ -3012,11 +3050,12 @@ class GameEngine {
       }
     }
 
-    // OVERKILL: excess damage spills to base
-    if (targetCard && targetCard.currentHp !== undefined) {
+    // OVERKILL: excess damage spills to base (never more than the hit itself, and
+    // only from a target that was actually alive)
+    if (targetCard && targetCard.currentHp !== undefined && targetCard.currentHp > 0) {
       var wouldKill = targetCard.currentHp - result.damage;
       if (wouldKill < 0) {
-        result.overkill = Math.abs(wouldKill);
+        result.overkill = Math.min(result.damage, Math.abs(wouldKill));
         this.log('OVERKILL! ' + result.overkill + ' spills to ' + targetPlayer.name + ' base!');
       }
     }

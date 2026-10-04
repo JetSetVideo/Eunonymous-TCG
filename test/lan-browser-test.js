@@ -10,7 +10,9 @@
  *   GAME_URL=http://127.0.0.1:8787/ node test/lan-browser-test.js
  */
 const path = require('path');
-const puppeteer = require('puppeteer-core');
+// puppeteer-core >= 22 is ESM-only; on Node < 22.12 require() of it throws
+// ERR_REQUIRE_ESM, so it is loaded with a dynamic import inside main().
+let puppeteer = null;
 
 // A Chromium-family binary must already exist; puppeteer-core never downloads one.
 function findChrome() {
@@ -47,6 +49,7 @@ async function waitFor(page, fn, label, ms = 12000) {
 }
 
 (async () => {
+  puppeteer = (await import('puppeteer-core')).default;
   console.log('LAN browser end-to-end test -> ' + BASE + '  (browser: ' + EXEC + ')');
   const browser = await puppeteer.launch({
     executablePath: EXEC,
@@ -177,6 +180,101 @@ async function waitFor(page, fn, label, ms = 12000) {
   ok('guest chat panel exists', await G.evaluate(() => !!document.getElementById('net-panel')));
   ok('guest sent no page errors', pageErrors.filter((e) => e.startsWith('GUEST')).length === 0,
     pageErrors.filter((e) => e.startsWith('GUEST')).slice(0, 4));
+
+  // ---- 10. Hidden information ----------------------------------------------
+  const hidden = await G.evaluate(() => ({
+    oppHand: ui.game.enemy.hand.length,
+    oppHandHidden: ui.game.enemy.hand.every((c) => c && c.hidden === true && !c.name),
+    oppDeckHidden: ui.game.enemy.deck.every((c) => c && c.hidden === true && !c.name),
+    ownDeckHidden: ui.game.player.deck.every((c) => c && c.hidden === true),
+    ownHandReal: ui.game.player.hand.every((c) => c && !c.hidden && !!c.name)
+  }));
+  const hostHandLen = await H.evaluate(() => ui.game.player.hand.length);
+  ok('guest cannot see host hand contents (count only)', hidden.oppHandHidden && hidden.oppHand === hostHandLen, { hidden, hostHandLen });
+  ok('deck order is not leaked to the guest', hidden.oppDeckHidden && hidden.ownDeckHidden, hidden);
+  ok('guest still sees its own hand', hidden.ownHandReal, hidden);
+
+  // ---- 11. Sequence numbers: stale / invalid snapshots are dropped ---------
+  const seqRes = await G.evaluate(() => {
+    const before = { turn: ui.game.turnCount, hp: ui.game.player.hp, seq: Net._lastSeq };
+    const inject = (payload) => Net.ws.onmessage({ data: JSON.stringify({ t: 'relay', lane: 'host', payload }) });
+    const fake = JSON.parse(JSON.stringify({
+      state: 'battle', phase: 'main', turnCount: 999, cur: 'player',
+      player: ui.game.enemy, enemy: Object.assign({}, ui.game.player, { hp: 1 })
+    }));
+    const d0 = Net.stats.snapsDropped, i0 = Net.stats.snapsInvalid;
+    inject({ k: 'snap', g: fake, full: true, seq: Net._lastSeq, epoch: Net._epoch });       // duplicate seq
+    inject({ k: 'snap', g: fake, full: true, seq: Net._lastSeq - 1, epoch: Net._epoch });   // out of order
+    inject({ k: 'snap', g: { state: 'battle', turnCount: 999 }, full: true, seq: Net._lastSeq + 1000, epoch: Net._epoch }); // malformed
+    inject({ k: 'snap', g: 'garbage', seq: Net._lastSeq + 1001, epoch: Net._epoch });
+    return {
+      before, after: { turn: ui.game.turnCount, hp: ui.game.player.hp, seq: Net._lastSeq },
+      dropped: Net.stats.snapsDropped - d0, invalid: Net.stats.snapsInvalid - i0
+    };
+  });
+  ok('guest drops duplicate + out-of-order snapshots', seqRes.dropped === 2, seqRes);
+  ok('guest rejects malformed snapshots before applying', seqRes.invalid === 2, seqRes);
+  ok('guest state untouched by stale/invalid snapshots',
+    seqRes.after.turn === seqRes.before.turn && seqRes.after.hp === seqRes.before.hp && seqRes.after.seq === seqRes.before.seq, seqRes);
+
+  // ---- 12. Guest socket drops mid-match -> auto-reconnect + resync ---------
+  await G.evaluate(() => Net._dropSocket());
+  await waitFor(G, () => Net.reconnecting === true || (Net.connected && Net.stats.reconnects > 0), 'guest enters reconnecting', 4000);
+  const reconnStatus = await G.evaluate(() => ({
+    text: document.getElementById('net-status').textContent,
+    state: document.getElementById('net-panel').getAttribute('data-net-state')
+  }));
+  ok('guest UI shows reconnecting status',
+    /reconnect/i.test(reconnStatus.text) || reconnStatus.state === 'reconnecting', reconnStatus);
+  await waitFor(H, () => Net.peerPresent === false || Net.stats.resyncs > 0, 'host notices the drop', 4000);
+
+  // While the guest is away, the host's authoritative state moves on.
+  await H.evaluate(() => {
+    if (ui.game.currentPlayer !== ui.game.player) ui.game.currentPlayer = ui.game.player;
+    ui.game.enemy.hp = ui.game.enemy.hp - 3;
+    if (ui.game.phase === 'bank') ui.game.endBankPhase(ui.game.player);
+  });
+  const hostAfter = await H.evaluate(() => ({ phase: ui.game.phase, hp: ui.game.enemy.hp, turn: ui.game.turnCount, resyncs: Net.stats.resyncs }));
+
+  await waitFor(G, () => Net.connected && Net.peerPresent && !Net.reconnecting, 'guest reconnected', 12000);
+  await G.evaluate((hp) => { window.__expectHp = hp; }, hostAfter.hp);
+  await waitFor(G, () => ui.game && ui.game.player.hp === window.__expectHp, 'guest resynced HP', 8000);
+  const guestAfter = await G.evaluate(() => ({
+    phase: ui.game.phase, hp: ui.game.player.hp, turn: ui.game.turnCount,
+    hostIsCurrent: ui.game.currentPlayer === ui.game.enemy, reconnects: Net.stats.reconnects, room: Net.room,
+    status: document.getElementById('net-status').textContent
+  }));
+  ok('guest auto-reconnected to the same room', guestAfter.reconnects >= 1 && guestAfter.room === room, guestAfter);
+  ok('host re-sent a full snapshot on rejoin', (await H.evaluate(() => Net.stats.resyncs)) > hostAfter.resyncs);
+  ok('guest resynced state changed while it was away (HP, phase, turn)',
+    guestAfter.hp === hostAfter.hp && guestAfter.phase === hostAfter.phase && guestAfter.turn === hostAfter.turn && guestAfter.hostIsCurrent,
+    { hostAfter, guestAfter });
+  ok('guest UI shows connected again', /connected|live/i.test(guestAfter.status) && !/reconnecting/i.test(guestAfter.status), guestAfter.status);
+
+  // Actions flow again after the reconnect.
+  await H.evaluate(() => ui.game.endTurn(ui.game.player));
+  await waitFor(G, () => ui.game.currentPlayer === ui.game.player && ui.game.phase === 'bank', 'guest turn after reconnect');
+  await G.evaluate(() => ui.game.endBankPhase(ui.game.player));
+  await waitFor(H, () => ui.game.currentPlayer === ui.game.enemy && ui.game.phase === 'main', 'host applies guest action after reconnect');
+  ok('guest actions reach the host after reconnect', true);
+
+  // ---- 13. Guest reloads the page mid-match -> rejoin same code -> resync --
+  await G.reload({ waitUntil: 'domcontentloaded' });
+  await waitFor(G, () => typeof Net !== 'undefined' && typeof ui !== 'undefined', 'guest reloaded');
+  await waitFor(H, () => Net.peerPresent === false, 'host sees reloaded guest drop', 6000);
+  const hostHp2 = await H.evaluate(() => { ui.game.enemy.hp = ui.game.enemy.hp - 2; return ui.game.enemy.hp; });
+  await G.evaluate((code) => { Net.myName = 'Bob'; Net.connect('guest', code); }, room);
+  await G.evaluate((hp) => { window.__expectHp = hp; }, hostHp2);
+  await waitFor(G, () => !!(ui.game && ui.game.state === 'battle' && ui.game.player.hp === window.__expectHp), 'reloaded guest resynced', 12000);
+  const reloaded = await G.evaluate(() => ({ phase: ui.game.phase, hp: ui.game.player.hp, screen: ui.currentScreen, cur: ui.game.currentPlayer === ui.game.player }));
+  const hostNow = await H.evaluate(() => ({ phase: ui.game.phase, cur: ui.game.currentPlayer === ui.game.enemy }));
+  ok('reloaded guest reclaims its seat and gets the live match', reloaded.hp === hostHp2 && reloaded.phase === hostNow.phase && reloaded.cur === hostNow.cur, { reloaded, hostNow });
+
+  // ---- 14. Explicit leave shows "opponent left" on the host ----------------
+  await G.evaluate(() => Net.disconnect());
+  await waitFor(H, () => /left/i.test(document.getElementById('net-status').textContent), 'host shows opponent left', 4000);
+  ok('host UI shows opponent left', true);
+  ok('no page errors after reconnect scenarios', pageErrors.length === 0, pageErrors.slice(0, 6));
 
   if (pageErrors.length) {
     console.log('\n  page errors seen:');

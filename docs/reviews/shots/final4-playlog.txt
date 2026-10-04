@@ -1,0 +1,232 @@
+
+
+ENGINE LOG
+T0 Battle started! Field: The Gauntlet
+T0 Metadeck created with 80 cards. Both Commanders start with an empty hand.
+T1 Bank adjusted — added Mana Leech (cost 1)
+T1 --- Turn 1 (Commander) Bank Phase. Mana: 2/2 ---
+T1 Bank replenishes — new card available!
+T1 Commander buys Mana Leech [Cost: 1] Mana: 1/2
+T1 Commander ends Bank Phase.
+T1 Commander gains 1 Power (1 available)
+T1 Commander plays Mana Leech [Cost: 1] to battle
+T1 Mana Leech drains enemy power generation!
+T1 Commander ends turn.
+T1 --- Turn 1 (Opponent) Bank Phase. Mana: 2/2 ---
+T1 Bank replenishes — new card available!
+T1 Opponent buys Nitro Injection [Cost: 2] Mana: 0/2
+T1 Opponent ends Bank Phase.
+T1 Opponent gains 1 Power (1 available)
+T1 Opponent ends turn.
+T2 Bank adjusted — added Weapon Cache (cost 2)
+T2 --- Turn 2 (Commander) Bank Phase. Mana: 2/2 ---
+T2 Bank replenishes — new card available!
+T2 Commander buys Weapon Cache [Cost: 2] Mana: 0/2
+T2 Commander ends Bank Phase.
+T2 Commander gains 2 Power (2 available)
+T2 Commander plays Weapon Cache [Cost: 2] to battle
+T2 Mana Leech has First Strike (Speed 4 > 0)!
+T2 Mana Leech hits Opponent base for 1!
+T2 Commander ends turn.
+T2 --- Turn 2 (Opponent) Bank Phase. Mana: 2/2 ---
+T2 Bank replenishes — new card available!
+T2 Opponent buys Apprentice Alchemist [Cost: 2] Mana: 0/2
+T2 Opponent ends Bank Phase.
+T2 Opponent gains 2 Power (2 available)
+T2 Opponent plays Apprentice Alchemist [Cost: 2] to battle
+T2 Opponent ends turn.
+T3 --- Turn 3 (Commander) Bank Phase. Mana: 3/3 ---
+T3 Bank replenishes — new card available!
+T3 Commander buys Confusion Grid [Cost: 3] Mana: 0/3
+T3 Commander ends Bank Phase.
+T3 Commander gains 3 Power (3 available)
+T3 Commander plays Confusion Grid [Cost: 3] to battle
+T3 TEAM SYNERGY: Control x2 activated! (minor)
+T3 Control Ally: +1 Power!
+T3 Mana Leech has First Strike (Speed 4 > 0)!
+T3 Mana Leech hits Opponent base for 1!
+T3 Weapon Cache hits Opponent base for 1!
+T3 Commander ends turn.
+T3 ═══ DANGER 🌌 NEBULA BLOOM (Lv1) — All creatures heal 1 HP! ═══
+T3 --- Turn 3 (Opponent) Bank Phase. Mana: 3/3 ---
+T3 Bank replenishes — new card available!
+T3 Opponent buys Ore Sifter [Cost: 2] Mana: 1/3
+T3 Opponent ends Bank Phase.
+T3 Opponent gains 3 Power (3 available)
+T3 Opponent plays Ore Sifter [Cost: 2] to base
+T3 TEAM SYNERGY: Economy x2 activated! (minor)
+T3 Economy Ally: +1 Power!
+T3 Opponent plays Nitro Injection [Cost: 2] to none
+T3 Opponent casts Nitro Injection!
+T3 Apprentice Alchemist has First Strike (Speed 3 > 0)!
+T3 Apprentice Alchemist [2] attacks Weapon Cache [DEF:1] for 1!
+T3 Weapon Cache destroyed!
+T3 Opponent ends turn.
+T4 --- Turn 4 (Commander) Bank Phase. Mana: 4/4 ---
+T4 Bank replenishes — new card available!
+T4 Commander buys Titan Forge [Cost: 4] Mana: 0/4
+T4 Commander ends Bank Phase.
+T4 Commander gains 4 Power (4 available)
+T4 Commander plays Titan Forge [Cost: 4] to base
+T4 Mana Leech has First Strike (Speed 4 > 0)!
+T4 Mana Leech hits Ore Sifter for 1!
+T4 Commander ends turn.
+T4 --- Turn 4 (Opponent) Bank Phase. Mana: 4/4 ---
+T4 Bank replenishes — new card available!
+T4 Opponent buys Blade Dancer [Cost: 2] Mana: 2/4
+T4 Bank replenishes — new card available!
+T4 Opponent buys Adrenaline Shot [Cost: 1] Mana: 1/4
+T4 Opponent ends Bank Phase.
+T4 Refine! 1 unused Mana → +1 Production!
+T4 Opponent gains 6 Power (6 available)
+T4 Opponent plays Blade Dancer [Cost: 2] to battle
+T4 Opponent plays Adrenaline Shot [Cost: 1] to none
+T4 Apprentice Alchemist has First Strike (Speed 3 > 0)!
+T4 Apprentice Alchemist [2] attacks Confusion Grid [DEF:0] for 2!
+T4 Confusion Grid destroyed!
+T4 Opponent ends turn.
+T5 --- Turn 5 (Commander) Bank Phase. Mana: 5/5 ---
+T5 Bank replenishes — new card available!
+T5 Commander buys Blade Master [Cost: 5] Mana: 0/5
+T5 Bank replenishes — new card available!
+T5 Commander buys Spark Scout [Cost: 0] Mana: 0/5
+T5 Commander ends Bank Phase.
+T5 Commander gains 5 Power (5 available)
+T5 Commander plays Blade Master [Cost: 5] to battle
+T5 Blade Master BARRAGE! Attacks all enemy creatures!
+T5 Commander plays Spark Scout [Cost: 0] to battle
+T5 ⚡ TWIN STRIKE! Rush cards +2 ATK + Charge!
+T5 TEAM SYNERGY: Overchargers x2 activated! (minor)
+T5 Overchargers Ally: +1 ATK!
+T5 Mana Leech has First Strike (Speed 4 > 0)!
+T5 Mana Leech hits Ore Sifter for 1!
+T5 Spark Scout destroyed!
+T5 Commander ends turn.
+T5 ═══ DANGER ⚡ VOID STORM (Lv2) — All creatures take 2 damage! ═══
+T5 Mana Leech destroyed!
+T5 Apprentice Alchemist destroyed!
+T5 Blade Dancer destroyed!
+T5 --- Turn 5 (Opponent) Bank Phase. Mana: 5/5 ---
+T5 Bank replenishes — new card available!
+T5 Opponent buys Living Wall [Cost: 5] Mana: 0/5
+T5 Opponent ends Bank Phase.
+T5 Opponent gains 7 Power (7 available)
+T5 Opponent plays Living Wall [Cost: 5] to battle
+T5 Living Wall regenerates 2 HP!
+T5 Opponent ends turn.
+T6 --- Turn 6 (Commander) Bank Phase. Mana: 6/6 ---
+T6 Bank replenishes — new card available!
+T6 Commander buys Distillation Rite [Cost: 3] Mana: 3/6
+T6 Bank replenishes — new card available!
+T6 Commander buys Resonator [Cost: 3] Mana: 0/6
+T6 Commander ends Bank Phase.
+T6 Commander gains 6 Power (6 available)
+T6 Commander plays Resonator [Cost: 3] to battle
+T6 Commander plays Distillation Rite [Cost: 3] to battle
+T6 Commander casts Distillation Rite!
+T6 Blade Master has First Strike (Speed 5 > 0)!
+T6 Blade Master hits Ore Sifter for 9!
+T6 Ore Sifter destroyed!
+T6 Ore Sifter destroyed! Base takes 1 collateral damage!
+T6 Overflow: 8 damage to base!
+T6 Blade Master has First Strike (Speed 5 > 0)!
+T6 Blade Master hits Opponent base for 9!
+T6 Commander ends turn.
+T6 --- Turn 6 (Opponent) Bank Phase. Mana: 6/6 ---
+T6 Bank replenishes — new card available!
+T6 Opponent buys Dominus [Cost: 5] Mana: 1/6
+T6 Bank replenishes — new card available!
+T6 Opponent buys Scrap Runner [Cost: 1] Mana: 0/6
+T6 Opponent ends Bank Phase.
+T6 Opponent gains 6 Power (6 available)
+T6 Opponent plays Dominus [Cost: 5] to battle
+T6 Opponent plays Scrap Runner [Cost: 1] to battle
+T6 Scrap Runner has First Strike (Speed 9 > 5)!
+T6 Scrap Runner [2] attacks Blade Master [DEF:3] for 1!
+T6 Blade Master destroyed!
+T6 Living Wall [2] attacks Resonator [DEF:3] for 1!
+T6 Living Wall regenerates 2 HP!
+T6 Opponent ends turn.
+T7 --- Turn 7 (Commander) Bank Phase. Mana: 7/7 ---
+T7 Bank replenishes — new card available!
+T7 Commander buys Signal Broadcaster [Cost: 5] Mana: 2/7
+T7 Bank replenishes — new card available!
+T7 Commander buys Counter Spell [Cost: 2] Mana: 0/7
+T7 Commander ends Bank Phase.
+T7 Commander gains 7 Power (7 available)
+T7 Commander plays Signal Broadcaster [Cost: 5] to battle
+T7 Signal Broadcaster Replicates! Creates Resonator (Copy)!
+T7 TEAM SYNERGY: Synergy x2 activated! (minor)
+T7 Synergy Ally: +1 ATK!
+T7 Commander plays Counter Spell [Cost: 2] to battle
+T7 Commander casts Counter Spell!
+T7 Counter Spell! Next enemy spell negated. Drew 1.
+T7 Resonator has First Strike (Speed 5 > 0)!
+T7 Resonator hits Opponent base for 4!
+T7 Resonator Fortify! +1/+1 permanently!
+T7 Commander ends turn.
+T7 ═══ DANGER 🛰 SCAVENGER POD (Lv3) — Both commanders draw 1 card & gain 2 Power! ═══
+T7 --- Turn 7 (Opponent) Bank Phase. Mana: 7/7 ---
+T7 Bank replenishes — new card available!
+T7 Opponent buys Dominus [Cost: 5] Mana: 2/7
+T7 Bank replenishes — new card available!
+T7 Opponent buys Counter Spell [Cost: 2] Mana: 0/7
+T7 Opponent ends Bank Phase.
+T7 Opponent gains 7 Power (7 available)
+T7 Opponent plays Dominus [Cost: 5] to battle
+T7 TEAM SYNERGY: Control x2 activated! (minor)
+T7 Control Ally: +1 Power!
+T7 Opponent plays Mana Leech [Cost: 1] to battle
+T7 Mana Leech drains enemy power generation!
+T7 TEAM SYNERGY: Control x3 activated! (FULL)
+T7 Control Synergy: +2 Power!
+T7 Opponent plays Counter Spell [Cost: 2] to none
+T7 Opponent casts Counter Spell!
+T7 Counter Spell! Next enemy spell negated. Drew 1.
+T7 Scrap Runner has First Strike (Speed 9 > 5)!
+T7 Scrap Runner [2] attacks Resonator [DEF:4] for 1!
+T7 Dominus [4] attacks Resonator [DEF:4] for 1!
+T7 Resonator destroyed!
+T7 Living Wall regenerates 2 HP!
+T7 Opponent ends turn.
+T8 --- Turn 8 (Commander) Bank Phase. Mana: 8/8 ---
+T8 Bank replenishes — new card available!
+T8 Commander buys Apex Chassis [Cost: 6] Mana: 2/8
+T8 Bank replenishes — new card available!
+T8 Commander buys Banker [Cost: 2] Mana: 0/8
+T8 Commander ends Bank Phase.
+T8 Commander gains 8 Power (8 available)
+T8 Commander plays Voice of the Machine God [Cost: 7] to battle
+T8 Signal Broadcaster destroyed!
+T8 Voice of the Machine God Sacrament! +2/+2 from sacrifice of Signal Broadcaster!
+T8 Commander plays Link Initiator [Cost: 1] to battle
+T8 TEAM SYNERGY: Synergy x2 activated! (minor)
+T8 Synergy Ally: +1 ATK!
+T8 Commander ends turn.
+T8 --- Turn 8 (Opponent) Bank Phase. Mana: 8/8 ---
+T8 Bank replenishes — new card available!
+T8 Opponent buys Shield Bearer [Cost: 2] Mana: 6/8
+T8 Bank replenishes — new card available!
+T8 Opponent buys Hive Overseer [Cost: 3] Mana: 3/8
+T8 Bank replenishes — new card available!
+T8 Opponent buys Apprentice Alchemist [Cost: 2] Mana: 1/8
+T8 Bank replenishes — new card available!
+T8 Opponent buys Adrenaline Shot [Cost: 1] Mana: 0/8
+T8 Opponent ends Bank Phase.
+T8 Opponent gains 8 Power (8 available)
+T8 Opponent plays Adrenaline Shot [Cost: 1] to none
+T8 Scrap Runner has First Strike (Speed 9 > 5)!
+T8 Scrap Runner [2] attacks Link Initiator [DEF:1] for 1!
+T8 Link Initiator destroyed!
+T8 Living Wall regenerates 2 HP!
+T8 Opponent ends turn.
+T9 --- Turn 9 (Commander) Bank Phase. Mana: 9/9 ---
+T9 Bank replenishes — new card available!
+T9 Commander buys Siege Engine [Cost: 6] Mana: 3/9
+T9 Bank replenishes — new card available!
+T9 Commander buys Distillation Rite [Cost: 3] Mana: 0/9
+T9 Commander ends Bank Phase.
+T9 Commander gains 9 Power (9 available)
+T9 Voice of the Machine God has First Strike (Speed 4 > 0)!
+T9 Voice of the Machine God hits Opponent base for 9!
+T9 === Commander WINS! [Base HP reduced to zero!] ===

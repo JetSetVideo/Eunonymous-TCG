@@ -1,0 +1,148 @@
+/* ============================================================
+   battle-ux.css — playability fixes found by mouse play-testing
+   ------------------------------------------------------------
+   1. BANK PHASE MARKET WAS UNCLICKABLE. #bank-zone lived inside
+      .mid-zone (a flex column with overflow:auto) and was squeezed
+      to ~10px tall; its cards overflowed downward underneath
+      .player-zone (z-index 2, later in the DOM), so elementFromPoint
+      on any market card returned .player-zone. A real mouse could
+      never buy a card. Now the bank is a fixed, centred panel above
+      the arena with its own scroll, sized for the v2 market cards.
+   2. End Bank Phase button was 19px tall / 0.55rem text: enlarged.
+   ============================================================ */
+
+#bank-zone.active:not(#_bux) {
+  position: fixed !important;
+  left: 50% !important;
+  top: 84px !important;
+  bottom: 96px !important;
+  width: min(1180px, calc(100vw - 24px)) !important;
+  max-width: none !important;
+  max-height: none !important;
+  height: auto !important;
+  margin: 0 !important;
+  transform: translateX(-50%) !important;
+  animation: buxBankIn .28s cubic-bezier(.16, 1, .3, 1) !important;
+  z-index: 400 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px;
+  padding: 14px 18px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  background: linear-gradient(180deg, rgba(10, 14, 32, .97), rgba(5, 7, 18, .97)) !important;
+  border: 1px solid rgba(0, 217, 255, .35) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .75), 0 0 0 100vmax rgba(0, 0, 0, .35) !important;
+}
+@keyframes buxBankIn {
+  from { opacity: 0; transform: translate(-50%, -14px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (prefers-reduced-motion: reduce) { #bank-zone.active:not(#_bux) { animation: none !important; } }
+
+#bank-zone.active .bank-header:not(#_bux) {
+  flex: 0 0 auto !important;
+  display: flex !important; flex-wrap: wrap !important; align-items: center !important;
+  justify-content: space-between !important; gap: 12px !important;
+  padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+#bank-zone.active .bank-phase-title:not(#_bux) { font-size: 1.05rem !important; letter-spacing: .08em; }
+#bank-zone.active .bank-mana-text:not(#_bux)   { font-size: .95rem !important; font-weight: 800; color: #7fd4ff; }
+#bank-zone.active .mana-crystals-bar .mana-crystal:not(#_bux) { width: 13px !important; height: 13px !important; }
+
+#bank-zone.active .bank-end-btn:not(#_bux) {
+  font-size: .95rem !important; font-weight: 900 !important; letter-spacing: .06em;
+  padding: 10px 22px !important; min-height: 42px; border-radius: 10px !important;
+  cursor: pointer; text-transform: uppercase;
+  background: linear-gradient(180deg, #ffd34d, #e09a00) !important; color: #1a1200 !important;
+  border: 0 !important; box-shadow: 0 4px 14px rgba(255, 190, 0, .35) !important;
+}
+#bank-zone.active .bank-end-btn:not(#_bux):hover { filter: brightness(1.1); }
+
+#bank-zone.active .bank-market-area:not(#_bux) {
+  flex: 0 0 auto !important; height: auto !important; min-height: 0 !important;
+  overflow: visible !important; display: flex !important; align-items: flex-start !important;
+  gap: 14px !important; flex-wrap: nowrap !important; justify-content: center !important;
+}
+#bank-zone.active #bank-cards:not(#_bux) {
+  display: flex !important; flex-wrap: wrap !important; justify-content: center !important;
+  gap: 16px !important; padding: 14px 4px 6px !important; overflow: visible !important;
+}
+#bank-zone.active .bank-card-slot:not(#_bux) { margin: 0 !important; }
+#bank-zone.active .bank-card-slot:not(.unaffordable):hover { transform: translateY(-8px) !important; }
+/* the price lock label sat on top of the card's stat badges */
+#bank-zone.active .bank-card-slot.unaffordable::after {
+  bottom: auto !important; top: 46% !important; font-size: .8rem !important; z-index: 9;
+}
+
+#bank-zone.active .bank-hand-preview:not(#_bux) {
+  flex: 0 0 auto !important; max-height: none !important; min-height: 0 !important; overflow: visible !important;
+  border-top: 1px solid rgba(255, 255, 255, .08); padding-top: 8px;
+}
+#bank-zone.active .bank-hand-label:not(#_bux) { font-size: .8rem !important; }
+#bank-zone.active #bank-hand-cards:not(#_bux) { flex-wrap: wrap !important; gap: 8px !important; justify-content: center; }
+#bank-zone.active .bank-hand-card .card.cv2:not(#_cv2):not(#_cv2b) { --cv2-w: 78px; }
+
+@media (max-height: 700px) {
+  #bank-zone.active:not(#_bux) { top: 8px !important; bottom: 8px !important; }
+}
+
+/* 3. Affordability must be readable, not just "dimmed". Locked cards stay legible
+      (players plan next turn from them) with a clear price chip; affordable cards
+      get a green ring and a BUY chip. */
+#bank-zone.active .bank-card-slot.unaffordable:not(#_bux) {
+  filter: grayscale(.55) brightness(.72) !important; opacity: 1 !important;
+}
+#bank-zone.active .bank-card-slot.unaffordable::after {
+  content: "🔒 needs " attr(data-cost) " mana" !important;
+  top: auto !important; bottom: -12px !important; left: 50% !important; transform: translateX(-50%) !important;
+  white-space: nowrap; padding: 3px 10px !important; border-radius: 999px !important;
+  background: #2a0d14 !important; color: #ff8fa3 !important; border: 1px solid #ff4d6d;
+  filter: none;
+}
+#bank-zone.active .bank-card-slot:not(.unaffordable) .card.cv2 {
+  outline: 3px solid #35e07a; outline-offset: 2px;
+  box-shadow: 0 0 22px rgba(53, 224, 122, .45) !important;
+}
+#bank-zone.active .bank-card-slot:not(.unaffordable)::after {
+  content: "BUY"; position: absolute; left: 50%; bottom: -12px; transform: translateX(-50%);
+  z-index: 9; padding: 3px 14px; border-radius: 999px; font: 900 .78rem/1.2 system-ui, sans-serif;
+  letter-spacing: .1em; color: #04210f; background: #35e07a; pointer-events: none;
+}
+#bank-zone.active #bank-cards:not(#_bux) { padding-bottom: 22px !important; }
+#bank-zone.active::before {
+  content: "Click a card with a green BUY tag to add it to your hand, then press END BANK PHASE.";
+  order: 1; flex: 0 0 auto; text-align: center; font-size: .85rem; color: #a9b8d6;
+}
+#bank-zone.active > .bank-header { order: 0; }
+#bank-zone.active > .bank-market-area { order: 2; }
+#bank-zone.active > .bank-hand-preview { order: 3; }
+
+/* enemy-intent pill was drawn over the bank header */
+body:has(#bank-zone.active) #intent-text,
+body:has(#bank-zone.active) .intent-banner { visibility: hidden; }
+
+/* 4. BATTLEFIELD SLOTS WERE UNDER THE HAND. .mid-zone holds ~385px of content in a
+      ~340px box (the two base strips are 112px each for 36px slots, the empty
+      enemy hand row reserves 108px). #player-battle-row overflowed into
+      .player-zone, so 4 of 5 "DROP HERE" slots hit-tested as .player-zone and a
+      dragged card could not be dropped there. Tighten the rows so everything fits
+      at 1280x720 and up, and let the field rows own their hit area. */
+#battle-arena .base-strip:not(#_bux) { min-height: 0 !important; height: auto !important; padding: 2px 0 !important; }
+#battle-arena .base-row:not(#_bux)   { min-height: 44px !important; height: auto !important; }
+#battle-arena .base-slot:not(#_bux)  { min-height: 40px !important; }
+#battle-arena .enemy-hand:not(#_bux) { min-height: 0 !important; height: auto !important; max-height: 64px; }
+#battle-arena .enemy-hand:empty:not(#_bux) { display: none !important; }
+#battle-arena .enemy-hand .card:not(#_cv2):not(#_cv2b) { width: 40px !important; height: 56px !important; min-width: 0 !important; aspect-ratio: auto !important; }
+#battle-arena .battle-row.player-battle-row:not(#_bux),
+#battle-arena .battle-row.enemy-battle-row:not(#_bux) {
+  min-height: 0 !important; height: auto !important; position: relative; z-index: 5;
+}
+#battle-arena .battle-slot-droppable:not(#_bux) {
+  width: calc(var(--cv2-field) + 8px) !important; min-height: calc(var(--cv2-field) * 1.4 + 8px) !important;
+  height: auto !important; display: flex !important; align-items: center; justify-content: center;
+}
+#battle-arena .player-zone:not(#_bux) { position: relative; z-index: 3; }
+#battle-arena .player-hand:not(#_bux) { min-height: 0 !important; height: auto !important; padding-top: 4px !important; }
+#battle-arena .mid-zone:not(#_bux) { overflow: visible !important; }

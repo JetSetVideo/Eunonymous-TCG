@@ -2,12 +2,15 @@
 /**
  * Test runner — `npm test`.
  *
- * Boots the LAN server on a free port, runs both suites against it, tears it
+ * Boots the LAN server on a free port, runs the suites against it, tears it
  * down. Self-contained: no manual server startup, no port assumptions, no
  * leftovers. Exits non-zero if anything fails.
  *
- *   1. test/lan-server-test.js   relay protocol        (9 assertions)
- *   2. test/lan-browser-test.js  two-browser mirror    (24 assertions)
+ *   1. test/lan-server-test.js    relay protocol                    (9 assertions)
+ *   2. test/lan-security-test.js  relay + static hardening          (52 assertions)
+ *                                 boots its OWN server with tightened limits
+ *   3. test/lan-browser-test.js   two-browser mirror, reconnect,
+ *                                 resync, seq ordering, hidden info  (41 assertions)
  */
 'use strict';
 
@@ -89,7 +92,10 @@ function runSuite(label, args, env) {
     };
 
     results.push(['relay protocol  ', await runSuite('relay protocol', ['test/lan-server-test.js'], env)]);
+    results.push(['relay hardening ', await runSuite('relay + static hardening', ['test/lan-security-test.js'],
+      { SEC_TEST_PORT: String(port + 1) })]);
     results.push(['browser mirror  ', await runSuite('two-browser mirror', ['test/lan-browser-test.js'], env)]);
+    results.push(['engine regress  ', await runSuite('engine regression', ['test/engine-regression-test.js'], {})]);
   } finally {
     server.kill('SIGTERM');
     await sleep(200);

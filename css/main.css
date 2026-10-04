@@ -2948,7 +2948,7 @@ body {
 }
 
 /* fog — drifting opacity layers */
-@keyframes fogDrift {
+@keyframes arenaFogDrift {
   0% { background-position: 0 0, 100px 50px, -100px 30px; }
   50% { background-position: 80px -30px, 0 100px, 80px -20px; }
   100% { background-position: 0 0, 100px 50px, -100px 30px; }
@@ -2959,7 +2959,7 @@ body {
     radial-gradient(ellipse 60% 30% at 30% 40%, rgba(100,120,160,0.18) 0%, transparent 80%),
     radial-gradient(ellipse 50% 25% at 70% 60%, rgba(80,100,140,0.12) 0%, transparent 70%),
     radial-gradient(ellipse 70% 35% at 50% 80%, rgba(60,80,120,0.1) 0%, transparent 80%);
-  animation: fogDrift 15s ease-in-out infinite;
+  animation: arenaFogDrift 15s ease-in-out infinite;
 }
 
 /* neon — pulsing red/pink glow flicker */
@@ -2982,7 +2982,7 @@ body {
 }
 
 /* golden — warm shimmer waves */
-@keyframes goldenShimmer {
+@keyframes arenaGoldenShimmer {
   0%, 100% { background-position: 0 0, 0 0; filter: brightness(1); }
   50% { background-position: 40px 20px, -20px 10px; filter: brightness(1.08); }
 }
@@ -2991,7 +2991,7 @@ body {
   background-image:
     radial-gradient(ellipse at 50% 30%, rgba(255,200,0,0.14) 0%, transparent 60%),
     radial-gradient(ellipse at 30% 70%, rgba(200,140,0,0.08) 0%, transparent 50%);
-  animation: goldenShimmer 9s ease-in-out infinite;
+  animation: arenaGoldenShimmer 9s ease-in-out infinite;
 }
 
 /* gravity — warping purple distortion */

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Eunonymous-TCG - Deckbuilding Battleground</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230a0e1c'/%3E%3Ctext x='32' y='46' font-size='38' text-anchor='middle'%3E%F0%9F%83%8F%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="css/main.css?v=9">
+<link rel="stylesheet" href="css/main.css?v=10">
 <link rel="stylesheet" href="css/cards.css?v=8">
 <link rel="stylesheet" href="css/shaders.css?v=8">
 <link rel="stylesheet" href="css/final-v11.css?v=11">
@@ -14,6 +14,8 @@
 <link rel="stylesheet" href="css/menu-redesign.css?v=1">
 <link rel="stylesheet" href="css/factions.css?v=1">
 <link rel="stylesheet" href="css/setup.css?v=1">
+<link rel="stylesheet" href="css/card-v2.css?v=1">
+<link rel="stylesheet" href="css/battle-ux.css?v=1">
 <style>
 @keyframes fadeInOut {
   0% { opacity: 0; transform: scale(0.85); }
@@ -942,6 +944,8 @@
 <script src="js/factions.js"></script>
 <script src="js/roles.js"></script>
 <script src="js/cards.js?v=9"></script>
+<script src="js/card-art.js?v=1"></script>
+<script src="js/card-fit.js?v=1"></script>
 <script src="js/characters.js?v=1"></script>
 <script src="js/audio.js?v=9"></script>
 <script src="js/achievements.js"></script>
@@ -949,7 +953,7 @@
 <script src="js/quests.js"></script>
 <script src="js/shaders.js?v=9"></script>
 <script src="js/vfx.js?v=1"></script>
-<script src="js/game.js?v=10"></script>
+<script src="js/game.js?v=15"></script>
 <script src="js/multiplayer.js"></script>
 <script>
 // ===== UI CONTROLLER =====
@@ -1501,118 +1505,106 @@ this.renderQuests();
 
 // ===== CARD RENDERING =====
 renderCard(card, small = false, inBattle = false, showBattleStats = false) {
+// Card v2 — 2.5:3.5 TCG geometry, full-bleed artwork from assets/art (js/card-art.js),
+// every element sized from the card width (container query units) so it stays
+// legible at every size. Size per context is set by --cv2-w on the parent (css/card-v2.css).
+// Kept for compatibility: root .card classes, data-id/data-instance, onclick + tooltip hooks.
+const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const rarity = card.rarity || 'common';
 const team = card.team || 'Neutral';
 const teamSlug = team.toLowerCase().replace(/[' ]/g, '-');
 const typeSlug = (card.type || '').toLowerCase();
 const isFrozen = card.frozenTurns && card.frozenTurns > 0;
+const tier = inBattle ? 'cv2-field' : (small ? 'cv2-small' : 'cv2-full');
 const cardClass = [
-  'card', `card-${typeSlug}`, rarity, `team-${teamSlug}`,
+  'card', 'cv2', tier, `card-${typeSlug}`, rarity, `team-${teamSlug}`,
   small ? 'in-hand' : '',
   inBattle ? 'in-battle' : '',
   isFrozen ? 'card-frozen' : ''
 ].filter(Boolean).join(' ');
 const onclick = inBattle ? `onclick="ui.playBattleCard('${card.instanceId || card.id}')"` : `onclick="ui.handleCardClick(this)"`;
 const ability = card.ability || '';
-const hasAbility = ability.length > 0;
-const teamColor = TEAM_COLORS[team] || '#888';
+const teamColor = TEAM_COLORS[team] || '#8a93a6';
+const charInfo = card.character && typeof CHARACTERS !== 'undefined' ? CHARACTERS[card.character] : null;
+const accent = charInfo && charInfo.color ? charInfo.color : teamColor;
 const cardCost = card.cost !== undefined ? card.cost : (card.power || 0);
 
-// Keyword tags
+// Ability: "Keyword: effect" -> bold keyword chips, effect text plain (bold-weight via CSS)
 const KWORDS = ['Surge','Invoke','Resonance','Detonate','Recall','Forge','Synth',
   'Overload','Nexus','Echo','Harvest','Nullify','Phase','Conduit','Ascend',
   'Taunt','Charge','Cover','Ephemeral','Regeneration','Quake','Drain','Mute',
   'Scout','Foresight','Gravedig','Levy',
-  // Character-locked keywords
   'Precision','Replicate','Infect','Transmute','Refine','Sacrament','Devotion',
   'Overclock','Adrenaline','Bloom','Symbiosis','Drift','Manifest',
   'Deploy','Network','Snare','Gambit'];
-let abilityHtml = ability;
-if (typeof KEYWORD_DESCRIPTIONS !== 'undefined') {
-  KWORDS.forEach(kw => {
-    const desc = KEYWORD_DESCRIPTIONS[kw] || '';
-    abilityHtml = abilityHtml.replace(
-      new RegExp(`\\b(${kw})(?=:?\\b)`, 'g'),
-      `<span class="keyword-tag" data-desc="${desc}">${kw}</span>`
-    );
-  });
-} else {
-  KWORDS.forEach(kw => {
-    abilityHtml = abilityHtml.replace(
-      new RegExp(`\\b(${kw})(?=:?\\b)`, 'g'),
-      `<strong>${kw}</strong>`
-    );
-  });
-}
+let abilityHtml = esc(ability);
+KWORDS.forEach(kw => {
+  const desc = (typeof KEYWORD_DESCRIPTIONS !== 'undefined' && KEYWORD_DESCRIPTIONS[kw]) || '';
+  abilityHtml = abilityHtml.replace(
+    new RegExp(`\\b(${kw})(?=:?\\b)`, 'g'),
+    `<b class="keyword-tag" data-desc="${esc(desc)}">${kw}</b>`
+  );
+});
 
 // Battle stats
 const curAtk = card.currentAtk !== undefined ? card.currentAtk : (card.attack || 0);
 const curDef = card.currentDef !== undefined ? card.currentDef : (card.defense || 0);
 const curHp  = card.currentHp  !== undefined ? card.currentHp  : (card.health || 0);
-const atkClass = curAtk > (card.attack||0) ? 'stat-buffed' : (curAtk < (card.attack||0) ? 'stat-debuffed' : '');
-const defClass = curDef > (card.defense||0) ? 'stat-buffed' : (curDef < (card.defense||0) ? 'stat-debuffed' : '');
-const hpClass  = curHp  < (card.health || 1) ? 'stat-debuffed' : '';
+const cls = (cur, base) => cur > base ? 'stat-buffed' : (cur < base ? 'stat-debuffed' : '');
+const isUnit = card.type === 'Creature' || card.attack > 0 || card.defense > 0 || card.health > 0;
 
-// HP bar
 let hpBarHtml = '';
 if (showBattleStats && card.health > 0) {
   const hpPct = Math.max(0, Math.min(100, (curHp / card.health) * 100));
   const hpBarClass = hpPct > 60 ? 'hp-high' : hpPct > 30 ? 'hp-medium' : 'hp-low';
-  hpBarHtml = `<div class="card-hp-bar-wrap"><div class="card-hp-bar-fill ${hpBarClass}" style="width:${hpPct}%"></div></div>`;
+  hpBarHtml = `<div class="cv2-hpbar"><div class="cv2-hpbar-fill ${hpBarClass}" style="width:${hpPct}%"></div></div>`;
 }
 
-// Rarity stars (0-5): common=0 ☆☆☆☆☆, uncommon=1 ★☆☆☆☆ ... mythic=5 ★★★★★
-const rarityStarCount = { common:0, uncommon:1, rare:2, epic:3, legendary:4, mythic:5 };
-const starCount = rarityStarCount[rarity] || 0;
-const starHtml = '★'.repeat(starCount) + '☆'.repeat(5 - starCount);
+// Artwork (falls back to the legacy emoji icon if no art is mapped / image fails)
+const art = typeof cardArtFor === 'function' ? cardArtFor(card) : null;
+const artHtml = art
+  ? `<img class="cv2-art card-art-img" src="${art.src}" alt="" loading="lazy" decoding="async" draggable="false" style="object-position:${art.pos}" onerror="this.remove()">`
+  : '';
 
-// Portrait
-const portraitClass = `card-portrait team-${teamSlug}`;
-const iconSize = small ? '1.8rem' : '2.4rem';
+// Stat badge: number ABOVE its icon (user rule: ATK above the sword)
+const stat = (k, val, icon, title, extra) =>
+  `<div class="cv2-stat cv2-${k} card-${k}-badge ${extra || ''}" title="${title}"><span class="cv2-stat-val">${val}</span><span class="cv2-stat-ico">${icon}</span></div>`;
+let statsHtml = '';
+if (isUnit) {
+  statsHtml = `<div class="cv2-stats">
+    ${stat('atk', curAtk, '⚔', 'Attack: ' + curAtk, cls(curAtk, card.attack || 0))}
+    ${card.defense > 0 || curDef > 0 ? stat('def', curDef, '🛡', 'Defense: ' + curDef, cls(curDef, card.defense || 0)) : ''}
+    ${card.health > 0 ? stat('hp', showBattleStats ? curHp : card.health, '❤', 'Health: ' + curHp + '/' + card.health, curHp < card.health ? 'stat-debuffed' : '') : ''}
+  </div>`;
+}
 
-// ATK/DEF badge values
-const atkDisplay = showBattleStats ? `<span class="${atkClass}">${curAtk}</span>` : (card.attack || 0);
-const defDisplay = showBattleStats ? `<span class="${defClass}">${curDef}</span>` : (card.defense || 0);
-const hpDisplay  = showBattleStats && card.health > 0 ? `<span class="${hpClass}">${curHp}/${card.health}</span>` : (card.health || 0);
-
-// Only show ATK/DEF badges for creatures and structure types that have attack/defense values
-const showAtkDef = card.attack > 0 || card.defense > 0;
+const rarityGem = `<span class="cv2-rarity cv2-r-${rarity}" title="${rarity}"></span>`;
 
 return `
 <div class="${cardClass}" data-id="${card.id}" data-rarity="${rarity}" data-instance="${card.instanceId || card.id}" ${onclick}
-onmouseenter="ui.showTooltip(this, '${card.id}')" onmouseleave="ui.hideTooltip()">
-<div class="card-frame"></div>
-<div class="card-shimmer"></div>
-<div class="card-holo"></div>
-<div class="card-team-bg"></div>
-<div class="card-texture-overlay"></div>
-${card.character && inBattle ? `<div class="card-char-badge" style="--char-color:${CHARACTERS[card.character]?.color || '#888'}" title="${card.character} signature">${CHARACTERS[card.character]?.icon || '✦'}</div>` : ''}
-<div class="card-header" style="background: linear-gradient(135deg, rgba(0,0,0,0.8), ${teamColor}33); border-bottom: 1px solid ${teamColor}44;${card.character && inBattle && CHARACTERS[card.character] ? `border-left: 3px solid ${CHARACTERS[card.character].color};` : ''}">
-  <div class="card-mana-cost" title="Mana cost">${cardCost}</div>
-  <div class="card-header-center">
-    <div class="card-name">${card.name}</div>
-    ${team !== 'Neutral' ? `<div class="card-team-tiny" style="color:${teamColor};">${team}</div>` : ''}
+onmouseenter="ui.showTooltip(this, '${card.id}')" onmouseleave="ui.hideTooltip()"
+style="--cv2-accent:${accent};--cv2-team:${teamColor}">
+  <div class="cv2-artwin">
+    ${artHtml}
+    <div class="cv2-art-fallback" aria-hidden="true">${card.icon || '✦'}</div>
+    <div class="cv2-art-shade"></div>
   </div>
-</div>
-<div class="${portraitClass}" style="min-height:${small?'52px':'78px'};position:relative;display:flex;align-items:center;justify-content:center;${card.character && CHARACTERS[card.character] ? 'background:radial-gradient(circle at center, '+CHARACTERS[card.character].color+'22 0%, transparent 70%);' : ''}">
-  <div class="card-art-bg"></div>
-  ${card.character && CHARACTERS[card.character] ? '<div class="card-char-portrait-overlay" style="position:absolute;top:4px;left:4px;font-size:0.7rem;opacity:0.5;">'+CHARACTERS[card.character].icon+'</div>' : ''}
-  <div class="card-art-icon" style="font-size:${iconSize};filter:drop-shadow(0 0 6px ${teamColor}88);">${card.icon || '✦'}</div>
-  ${card.character && !inBattle && CHARACTERS[card.character] ? '<div class="card-char-name-tag" style="position:absolute;bottom:2px;right:4px;font-size:0.4rem;color:'+CHARACTERS[card.character].color+';opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;">'+card.character+'</div>' : ''}
-</div>
-<div class="card-stars" title="Rarity: ${rarity}">${starHtml}</div>
-<div class="card-type-bar">
-  <span class="card-type-badge badge-${typeSlug}">${card.type}</span>
-</div>
-<div class="card-ability ${hasAbility ? '' : 'card-ability-empty'}">
-  ${hasAbility ? abilityHtml : '<em style="opacity:0.4">—</em>'}
-</div>
-${hpBarHtml}
-${showBattleStats && card.type === 'Creature' ? `<div class="card-battle-stats">
-  <span class="card-battle-stat-chip chip-hp" title="HP"><span class="${hpClass}">${curHp}</span>❤</span>
-</div>` : ''}
-${showAtkDef ? `<div class="card-atk-badge" title="Attack: ${curAtk}">${atkDisplay}<span class="badge-icon">⚔</span></div>` : ''}
-${showAtkDef ? `<div class="card-def-badge" title="Defense: ${curDef}">${defDisplay}<span class="badge-icon">🛡</span></div>` : ''}
+  <div class="cv2-cost card-mana-cost" title="Mana cost ${cardCost}">${cardCost}</div>
+  ${charInfo ? `<div class="cv2-char" title="${esc(card.character)} signature">${charInfo.icon || '✦'}</div>` : ''}
+  <div class="cv2-nameplate">
+    <div class="cv2-name card-name" title="${esc(card.name)}">${esc(card.name)}</div>
+  </div>
+  <div class="cv2-typeline">
+    <span class="cv2-type card-type-badge badge-${typeSlug}">${esc(card.type)}</span>
+    <span class="cv2-team">${esc(card.character || (team !== 'Neutral' ? team : ''))}</span>
+    ${rarityGem}
+  </div>
+  <div class="cv2-text card-ability">
+    ${ability ? `<div class="cv2-effect">${abilityHtml}</div>` : ''}
+    ${card.desc ? `<div class="cv2-flavor">${esc(card.desc)}</div>` : ''}
+  </div>
+  ${statsHtml}
+  ${hpBarHtml}
 </div>
 `;
 },
@@ -2279,11 +2271,12 @@ container.innerHTML = filtered.map((c, i) => {
         e.preventDefault();
         this.dragCard = card;
 
-        // Create floating card element
+        // Create floating card element (clone the real card so v2 styling/art carry over)
         const el = document.createElement('div');
-        el.className = 'card in-hand dragging';
         const srcEl = document.querySelector(`.card[data-instance="${card.instanceId || card.id}"]`)
           || document.querySelector(`.card[data-id="${card.id}"]`);
+        el.className = (srcEl ? srcEl.className : 'card in-hand') + ' dragging';
+        if (srcEl) el.setAttribute('style', srcEl.getAttribute('style') || '');
         el.innerHTML = srcEl ? srcEl.innerHTML : '';
         el.style.position = 'fixed';
         el.style.zIndex = '9999';
@@ -2866,6 +2859,10 @@ container.innerHTML = filtered.map((c, i) => {
             }
             const selected = this.selectedAttacker && (this.selectedAttacker.instanceId === card.instanceId || this.selectedAttacker.id === card.id) ? ' attacker-selected' : '';
             const sleepClass = cannotAttack ? ' zzz-card' : '';
+            // (these two were referenced but never declared -> ReferenceError on every
+            //  render with a creature on the field, which aborted endTurn's handoff)
+            const hasAttacksLeft = aLeft > 0;
+            const isFrozen = !!(card.frozenTurns && card.frozenTurns > 0);
             const readyClass = (!cannotAttack && isPlayer && hasAttacksLeft && !isFrozen) ? ' ready-to-attack' : '';
             const targetableCls = (!isPlayer && this.selectedAttacker) ? ' targetable' : '';
             html += `<div class="battle-slot-droppable${selected}${readyClass}${targetableCls}${isDroppable ? ' drop-target' : ''}${sleepClass}" data-zone="battle" data-index="${i}" ${onclick}>

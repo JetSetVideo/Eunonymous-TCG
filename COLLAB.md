@@ -490,3 +490,67 @@ fifteen started.
   8. AI vs AI + Conflict real engine support (generalise the AI off `this.enemy`).
   Do NOT batch these — each deserves its own probe and screenshot comparison, as this
   slice did.
+
+
+---
+
+### 2026-10-04 — Claude Code (netcode/security subagent) — LAN relay hardening + reconnect/resync
+
+**Branch:** `agent/claude/artwork-netcode-playtest` (not committed; the parent agent owns commits).
+
+**Security audit of `server/lan-server.js` — found → fixed:**
+- **HIGH** — A malformed `%`-escape (`GET /%E0%A4%A`) threw in `decodeURIComponent` and **crashed the whole server** (one-request remote DoS). Now 403.
+- **HIGH** — The static host served `.git/` (`/.git/config` → 200), `node_modules/` and every dotfile in the repo. Dot-segments and `node_modules` are now 403; symlinks escaping the root are refused.
+- **MEDIUM** — No `maxPayload` (ws default 100 MiB): a client could make the relay buffer and re-send huge frames. Now 2 MiB → close 1009.
+- **MEDIUM** — No per-connection rate limit: one socket could flood its peer through the relay. Now 120 msg/s, then drop + `RATE_LIMITED`; >4× → close 1008.
+- **MEDIUM** — Unbounded rooms and sockets: `create` in a loop grew the map forever. Now room cap 200, 32 sockets per IP, 512 total.
+- **MEDIUM** — Room codes are the only access control, but `/health` listed every code and name to anyone on the LAN, and codes came from `Math.random`. Codes and names are now only shown to loopback, and codes use `crypto.randomBytes`. Added a per-IP brute-force lockout (20 failed joins/min) and strict `^[A-HJ-NP-Z2-9]{4}$` validation.
+- **MEDIUM** — No WebSocket `Origin` check: any web page the player visited could open `ws://<lan-ip>:8787/ws` (cross-site WebSocket hijacking). Foreign origins now get 403 (`LAN_ALLOW_ANY_ORIGIN=1` to opt out).
+- **MEDIUM** — Guest-side cheating via the protocol. The host accepted any `slot` object, attack targets on the guest's *own* side, and plays outside the main phase. `applyAction` now validates slot zone/index/type and occupancy, restricts targets to the host's battle row or base, and requires the main phase for play/attack.
+- **MEDIUM** — Hidden information leak. Snapshots carried the host's full hand and both deck orders, so the guest could read them in devtools. Both are now redacted to same-length placeholders.
+- **LOW** — Static responses had wildcard CORS, no `nosniff`, and 404s echoed the URL. Fixed (nosniff, X-Frame-Options, Referrer-Policy, CORP, text/plain 404 without echo, GET/HEAD only).
+- **LOW** — Malformed JSON and non-object messages were silently dropped. They now get a `BAD_JSON`/`BAD_MESSAGE` error and the socket stays open. Names are sanitised (24 chars, no control chars or `<>`).
+- Already OK, now tested: the `..` traversal guard and the heartbeat ping/terminate.
+
+**Netcode (`js/net.js`):**
+- Reconnects with exponential backoff (0.5s→8s, ±20% jitter, 12 tries) after an unexpected drop, using seat tokens. The relay reserves a dropped seat for 2 min, and only the token can reclaim it. The guest token is kept in sessionStorage, so a page reload plus JOIN with the same code resumes the match.
+- The host re-sends a full snapshot whenever the guest (re)joins mid-match. The guest asks for `{k:'resync'}` if a snapshot fails to apply. A host whose socket blips also reclaims its room and resyncs.
+- Snapshots carry `{epoch, seq}`; the guest drops stale and out-of-order ones and shape-validates before applying.
+- Status text covers connected / reconnecting / opponent dropped (seat held) / opponent left. The panel dot is orange while reconnecting, and `#net-panel[data-net-state]` is exposed.
+- `battleLog`/`battleHistory` are capped at 300 entries per snapshot, so they stay under maxPayload in long games.
+
+**Tests:** new `test/lan-security-test.js` (52 assertions, boots its own server with tightened limits). Against the old server it fails 6 checks and crashes the server. `test/lan-browser-test.js` gained 17 assertions: hidden info, seq/validation, socket drop→reconnect→resync, page reload→rejoin→resync, opponent-left. Its `require('puppeteer-core')` is now a dynamic `import()`, because puppeteer-core 25 is ESM-only on Node 20.0. `npm test`: 9 + 52 + 41 pass.
+
+**Files:** `server/lan-server.js`, `js/net.js`, `test/lan-security-test.js` (new), `test/lan-browser-test.js`, `test/run-all.js`, `docs/LAN_SETUP.md`.
+
+**Not done / next:** if the host's *tab* closes or reloads, the match is still lost, because engine state lives only in that tab. Making host state survive would need a persisted snapshot. The guest does not yet replay VFX. AGENTS.md §8 still says "reconnect-within-a-match … not implemented" and §5's suite table lists two suites; whoever owns AGENTS.md should update both.
+
+---
+
+### 2026-10-04 — Claude (Mac) — card v2 + OneDrive artwork, playability fixes, mouse-played wins
+
+**Branch:** `agent/claude/artwork-netcode-playtest` (local commit, NOT pushed — awaiting the human's go-ahead).
+
+**Cards (art + layout)**
+- 131 artworks copied from the user's OneDrive `Eunonymous` folder → `assets/art/` (resized to max 560px, ~9 MB). One offensive filename was renamed (`blackqueenregal.jpg`); the political-compass meme was excluded. Mapping of all 268 cards in `js/card-art.js` (legendary/mythic art unique, max reuse 3), documented in `docs/ART.md`.
+- `ui.renderCard` rewritten (card v2): true 2.5:3.5 ratio, full-bleed art window, cost gem, name plate, type line between art and ability, **bold effect + italic flavor**, **stat value above its icon**. Sizes per context in `css/card-v2.css` (container-query units, so layout is scale-invariant).
+- `js/card-fit.js` measures each rendered card and steps down a fit ladder until nothing overflows. `node tools/qa/card-fit.js` renders all 268 cards × 4 tiers (1072) and asserts: ratio 1.4, no clipped name/text, nothing under the stat badges, no visible text < 9px, art loaded. **0 failures.**
+
+**Blockers found by playing with a real mouse (CDP mouse events, no ui.* calls)** — all fixed:
+1. Bank market cards were covered by `.player-zone` → unclickable. Bank is now a fixed panel (`css/battle-ux.css`) with BUY / "needs N mana" tags.
+2. 4 of 5 battlefield drop slots were under the hand → drops failed. Rows tightened.
+3. `renderBattleRow` used undeclared `hasAttacksLeft`/`isFrozen` → ReferenceError on any render with a creature, aborting the end-turn handoff (soft-lock).
+4. `aiPlayCards` recursed forever when holding an affordable-but-unplaceable card → "Maximum call stack size exceeded", froze the enemy turn. (Reproduced in 15/30 headless games before the fix, 0/80 after.)
+5. Duplicate `@keyframes fogDrift` (main.css) scaled the whole arena 1.1–1.15× on the fog biome → the enemy HP orb and buttons drifted off-screen. Arena keyframes renamed.
+6. Combo bonuses re-stacked on every card played (+2 ATK per play; a turn-4 unit hit for 14). Now once per card.
+7. Attacks on base-row cards / stale targets resolved the wrong owner → "overkill" spilled onto the attacker's own base. Owner lookup covers all zones; stale targets cancel and refund the attack; overkill capped at the hit.
+8. Action cards stayed on the battlefield forever (and AI Actions could overwrite its own creature). Now one-shot.
+
+**Tests:** `npm test` = relay protocol + relay hardening + browser mirror + **engine regression (new, 8 checks; all 8 fail on the old engine)** — all PASS.
+New QA tools: `tools/qa/card-fit.js`, `tools/qa/arena-stable.js` (all 7 biomes), `tools/qa/engine-soak.js` (N headless full games), `tools/qa/shoot.js`.
+
+**Observed:** a full match vs the AI won by mouse only (bank buys by click, plays by drag-and-drop, attacks by click on attacker then enemy HP orb, End Turn button). Won T9, Annihilation, 30 HP vs 0, damage taken 0. Log + screenshots: `docs/reviews/shots/final4-*`.
+
+**Netcode/security, audio/VFX:** see the separate entries from the netcode and sound sub-agents (relay hardening suite, reconnect + resync, procedural audio mix with limiter, VFX cleanup).
+
+**Still open (from vision review of mid-game screenshots):** NET PLAY panel occupies the right side during single-player matches; hover tooltip covers the board; battlefield stats could be larger; AGENTS.md §5/§8 need updating for the new suites and reconnect support. The review-panel sub-agent hit an API rate limit before writing its document (its screenshots are in `docs/reviews/shots/01-20`).

@@ -14,25 +14,41 @@
  *
  * IMPORTANT: `ui` and `GameEngine` are top-level `const`/`class` in classic
  * scripts. They live in the GLOBAL LEXICAL ENVIRONMENT, not on `window`, so they
- * must be referenced by bare name (see U() / EngineRef() below) — `window.ui` is
+ * must be referenced by bare name (see U() / EngineCls() below) — `window.ui` is
  * undefined.
  *
  * Requires: index.html's inline UI (`ui`) and js/game.js (`GameEngine`) first.
  * Loaded last, right before </body>.
  *
  * Payload protocol (opaque to the relay server):
- *   {k:'hello', name, deck}    both  — announce + share deck
- *   {k:'requestDeck'}          host  — ask guest for its current deck
- *   {k:'deck', cards:[...]}    guest — current deck (array of card objects)
- *   {k:'start', deck}          host  — match starting
- *   {k:'snap', g:{...}, full}  host  — authoritative state snapshot
- *   {k:'act', a:{...}}         guest — a player action to apply
- *   {k:'chat', text}           both  — lobby chat
+ *   {k:'hello', name, deck}             both  — announce + share deck
+ *   {k:'requestDeck'}                   host  — ask guest for its current deck
+ *   {k:'deck', cards:[...]}             guest — current deck (array of card objects)
+ *   {k:'start', deck}                   host  — match starting
+ *   {k:'snap', g:{...}, full, seq, epoch}  host — authoritative state snapshot
+ *   {k:'resync'}                        guest — "send me a full snapshot now"
+ *   {k:'act', a:{...}}                  guest — a player action to apply
+ *   {k:'chat', text}                    both  — lobby chat
+ *
+ * Robustness (see docs/LAN_SETUP.md):
+ *   • Reconnect with exponential backoff after an unexpected socket drop; the
+ *     relay holds the seat (seat token) so the same room is resumed.
+ *   • On (re)join mid-match the host pushes a FULL snapshot (resync).
+ *   • Snapshots carry {epoch, seq}; the guest drops stale / out-of-order ones.
+ *   • Snapshots are shape-validated before being applied.
+ *   • Hidden information: the host's hand contents and both deck orders are
+ *     redacted from snapshots (the guest UI only needs counts).
  */
 (function () {
   'use strict';
 
   var WS_PATH = '/ws';
+  var RECONNECT_BASE_MS = 500;
+  var RECONNECT_MAX_MS = 8000;
+  var RECONNECT_MAX_TRIES = 12;
+  var LOG_CAP = 300;            // battleLog / battleHistory entries per snapshot
+  var CHAT_MAX = 200;
+  var DECK_MAX = 80;
 
   // --- accessors for globals that live in the global lexical environment ---
   function U() { return (typeof ui !== 'undefined') ? ui : null; }
@@ -43,18 +59,27 @@
     ws: null,
     room: null,
     lane: null,
-    connected: false,
+    token: null,            // seat token from the relay — reclaims our seat on reconnect
+    connected: false,       // socket open AND seated in a room
     peerPresent: false,
     peerName: null,
     remoteDeck: null,       // host: the guest's deck
     myName: 'Commander',
     inMatch: false,
+    reconnecting: false,
+    stats: { snapsApplied: 0, snapsDropped: 0, snapsInvalid: 0, reconnects: 0, resyncs: 0 },
+    _seq: 0,                // host: last snapshot seq sent
+    _epoch: 0,              // host: random per-match id; guest: epoch of last applied snap
+    _lastSeq: 0,            // guest: seq of last applied snap
     _applying: false,
     _dirty: false,
     _lastFullAt: 0,
     _flushTimer: null,
     _safetyTimer: null,
     _pingTimer: null,
+    _reconnectTimer: null,
+    _reconnectTries: 0,
+    _intentionalClose: false,
     _orig: {},
     _patched: false,
     _panel: null,
@@ -79,9 +104,26 @@
     return proto + '//' + location.host + WS_PATH;
   }
 
+  function isObj(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
+  function isArr(v) { return Array.isArray(v); }
+  function tail(arr, n) { return isArr(arr) ? (arr.length > n ? arr.slice(arr.length - n) : arr) : []; }
+
   // -------------------------------------------------------------------------
   // Snapshot / apply
   // -------------------------------------------------------------------------
+  /** Copy of a side with hidden zones replaced by same-length placeholders. */
+  function redactSide(p, hideHand) {
+    if (!isObj(p)) return p;
+    var out = {};
+    for (var k in p) { if (Object.prototype.hasOwnProperty.call(p, k)) out[k] = p[k]; }
+    // Deck order is secret for BOTH sides (the guest only ever renders counts).
+    if (isArr(p.deck)) out.deck = p.deck.map(function () { return { hidden: true }; });
+    if (hideHand && isArr(p.hand)) {
+      out.hand = p.hand.map(function (c) { return { hidden: true }; });
+    }
+    return out;
+  }
+
   function snapshot(g, full) {
     var s = {
       state: g.state,
@@ -98,16 +140,42 @@
       applyBGRules: g.applyBGRules,
       battleground: g.battleground,
       cur: g.currentPlayer === g.enemy ? 'enemy' : 'player',
-      player: g.player,
-      enemy: g.enemy,
+      // host's own side: hand hidden. guest's side (g.enemy): its own hand is visible to it.
+      player: redactSide(g.player, true),
+      enemy: redactSide(g.enemy, false),
       currentMarket: g.currentMarket,
-      battleLog: g.battleLog,
-      battleHistory: g.battleHistory,
+      battleLog: tail(g.battleLog, LOG_CAP),
+      battleHistory: tail(g.battleHistory, LOG_CAP),
       pendingDangers: g.pendingDangers,
       shownCardIds: Array.from(g.shownCardIds || [])
     };
     if (full) s.metaDeck = g.metaDeck;
     return s;
+  }
+
+  function validSide(p) {
+    return isObj(p) && typeof p.hp === 'number' && isFinite(p.hp) &&
+      isArr(p.hand) && isArr(p.deck) &&
+      isObj(p.field) && isArr(p.field.battle) && isArr(p.field.base) &&
+      isArr(p.field.trap) && isArr(p.field.graveyard);
+  }
+
+  /** Shape check before anything touches the live engine. Returns '' if ok, else a reason. */
+  function validateSnapshot(s) {
+    if (!isObj(s)) return 'not an object';
+    if (typeof s.state !== 'string') return 'state';
+    if (typeof s.phase !== 'string') return 'phase';
+    if (typeof s.turnCount !== 'number' || !isFinite(s.turnCount) || s.turnCount < 0) return 'turnCount';
+    if (s.cur !== 'player' && s.cur !== 'enemy') return 'cur';
+    if (!validSide(s.player)) return 'player side';
+    if (!validSide(s.enemy)) return 'enemy side';
+    if (s.currentMarket != null && !isArr(s.currentMarket)) return 'currentMarket';
+    if (s.battleLog != null && !isArr(s.battleLog)) return 'battleLog';
+    if (s.battleHistory != null && !isArr(s.battleHistory)) return 'battleHistory';
+    if (s.pendingDangers != null && !isArr(s.pendingDangers)) return 'pendingDangers';
+    if (s.shownCardIds != null && !isArr(s.shownCardIds)) return 'shownCardIds';
+    if (s.metaDeck != null && !isArr(s.metaDeck)) return 'metaDeck';
+    return '';
   }
 
   function applySnapshot(g, s, uiObj) {
@@ -177,7 +245,7 @@
         var list = lists[l];
         if (!list) continue;
         for (var m = 0; m < list.length; m++) {
-          if (list[m] && list[m].instanceId === instanceId) return list[m];
+          if (list[m] && !list[m].hidden && list[m].instanceId === instanceId) return list[m];
         }
       }
     }
@@ -265,6 +333,7 @@
         return;
       }
       this.netHumanEnemy = (Net.mode === 'host');
+      if (Net.mode === 'host') { Net._epoch = Math.floor(Math.random() * 1e9) + 1; Net._seq = 0; }
       var r = Net._orig.startBattle.call(this, deck, enemyDeck, mode, bg, firstSide);
       if (Net.mode === 'host') { Net.inMatch = true; Net.markDirty(true); }
       return r;
@@ -282,12 +351,27 @@
 
   // -------------------------------------------------------------------------
   // HOST: apply a guest action against the authoritative engine
+  // Everything in `a` is attacker-controlled: validate types/ranges before use.
   // -------------------------------------------------------------------------
+  var SLOT_LIMITS = { battle: 5, base: 5, trap: 3, command: 1 };
+
+  function validSlot(slot, card) {
+    if (!isObj(slot) || typeof slot.zone !== 'string' || !SLOT_LIMITS[slot.zone]) return false;
+    var idx = slot.index;
+    if (slot.zone === 'command') return idx == null || idx === 0;
+    if (typeof idx !== 'number' || idx !== Math.floor(idx) || idx < 0 || idx >= SLOT_LIMITS[slot.zone]) return false;
+    // Spells resolve through battle slot 0 regardless; everything else must match its zone.
+    if (card && card.type === 'Creature' && slot.zone !== 'battle') return false;
+    if (card && card.type === 'Structure' && slot.zone !== 'base') return false;
+    if (card && card.type === 'Trap' && slot.zone !== 'trap') return false;
+    return true;
+  }
+
   function applyAction(a) {
     var uiObj = U();
     var g = (uiObj && uiObj.game) || null;
     if (!g || g.state !== 'battle') return;
-    if (!a || typeof a.kind !== 'string') return;
+    if (!isObj(a) || typeof a.kind !== 'string') return;
 
     var isGuestTurn = (g.currentPlayer === g.enemy);
     var guestSide = g.enemy;
@@ -297,22 +381,29 @@
     switch (a.kind) {
       case 'buyCard':
         if (!isGuestTurn || g.phase !== 'bank') { log('reject buyCard (not guest bank phase)'); return; }
+        if (typeof a.cardId !== 'string' && typeof a.cardId !== 'number') { log('reject buyCard: bad id'); return; }
         Net._orig.buyCard.call(g, guestSide, a.cardId);
         break;
       case 'playCard': {
-        if (!isGuestTurn) { log('reject playCard (not guest turn)'); return; }
+        if (!isGuestTurn || g.phase !== 'main') { log('reject playCard (not guest main phase)'); return; }
         var card = findInList(guestSide.hand, a.instanceId);
         if (!card) { log('reject playCard: card not in guest hand', a.instanceId); return; }
-        Net._orig.playCard.call(g, guestSide, card, a.slot);
+        if (!validSlot(a.slot, card)) { log('reject playCard: bad slot', a.slot); return; }
+        var slotRow = a.slot.zone === 'command' ? null : guestSide.field[a.slot.zone];
+        if (card.type !== 'Spell' && (a.slot.zone === 'command' ? guestSide.field.command : (slotRow && slotRow[a.slot.index]))) {
+          log('reject playCard: slot occupied'); return;
+        }
+        Net._orig.playCard.call(g, guestSide, card, { zone: a.slot.zone, index: a.slot.zone === 'command' ? 0 : a.slot.index });
         break;
       }
       case 'attack': {
-        if (!isGuestTurn) { log('reject attack (not guest turn)'); return; }
+        if (!isGuestTurn || g.phase !== 'main') { log('reject attack (not guest main phase)'); return; }
         var atk = findInList(guestSide.field.battle, a.instanceId);
         if (!atk) { log('reject attack: attacker not found', a.instanceId); return; }
-        var target = (a.target && a.target.kind === 'base')
+        // Targets must be the HOST's base or a card on the host's battle row.
+        var target = (isObj(a.target) && a.target.kind === 'base')
           ? g.player
-          : findCardAnywhere(g, a.target && a.target.instanceId);
+          : findInList(g.player.field.battle, isObj(a.target) ? a.target.instanceId : null);
         if (!target) { log('reject attack: target not found'); return; }
         Net._orig.attack.call(g, guestSide, atk, target);
         break;
@@ -344,7 +435,7 @@
     if (Net.mode !== 'host' || !Net.connected || !Net.peerPresent) return;
     var uiObj = U();
     var g = (uiObj && uiObj.game) || null;
-    if (!g) return;
+    if (!g || !Net.inMatch) return;
     if (!force && !Net._dirty) return;
 
     var now = Date.now();
@@ -353,10 +444,21 @@
 
     Net._dirty = false;
     try {
-      Net.send({ t: 'relay', payload: { k: 'snap', g: snapshot(g, wantFull), full: wantFull } });
+      if (!Net._epoch) Net._epoch = Math.floor(Math.random() * 1e9) + 1;
+      Net._seq++;
+      Net.send({ t: 'relay', payload: { k: 'snap', g: snapshot(g, wantFull), full: wantFull, seq: Net._seq, epoch: Net._epoch } });
     } catch (e) {
       log('snapshot failed:', e && e.message);
     }
+  };
+
+  /** Host: push a full snapshot right now (used when the guest (re)joins mid-match). */
+  Net.resync = function () {
+    if (Net.mode !== 'host' || !Net.inMatch) return;
+    Net.stats.resyncs++;
+    // Tell the guest a match is live (it may have reloaded), then the full state.
+    Net.send({ t: 'relay', payload: { k: 'start', resume: true } });
+    Net.flush(true);
   };
 
   // -------------------------------------------------------------------------
@@ -364,29 +466,48 @@
   // -------------------------------------------------------------------------
   Net.send = function (obj) {
     if (Net.ws && Net.ws.readyState === 1) {
-      try { Net.ws.send(JSON.stringify(obj)); } catch (e) { log('send failed', e); }
+      try { Net.ws.send(JSON.stringify(obj)); return true; } catch (e) { log('send failed', e); }
     }
+    return false;
   };
 
   Net.sendAction = function (a) {
-    if (!Net.connected || !Net.peerPresent) { Net.status('Not connected to an opponent yet.'); return; }
+    if (!Net.connected || !Net.peerPresent) {
+      Net.status(Net.reconnecting ? 'Reconnecting… action not sent.' : 'Not connected to an opponent yet.');
+      return;
+    }
     Net.send({ t: 'relay', payload: { k: 'act', a: a } });
   };
 
   Net.chat = function (text) {
+    text = String(text || '').slice(0, CHAT_MAX);
     if (!text) return;
     Net.send({ t: 'relay', payload: { k: 'chat', text: text } });
     addChat(Net.myName, text, true);
   };
 
+  function cleanPeerName(v) {
+    return String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 24) || 'Opponent';
+  }
+
+  function cleanDeck(cards) {
+    if (!isArr(cards)) return null;
+    var out = [];
+    for (var i = 0; i < cards.length && out.length < DECK_MAX; i++) {
+      if (isObj(cards[i]) && typeof cards[i].id === 'string') out.push(cards[i]);
+    }
+    return out.length ? out : null;
+  }
+
   function onRelay(payload) {
-    if (!payload || typeof payload.k !== 'string') return;
+    if (!isObj(payload) || typeof payload.k !== 'string') return;
     switch (payload.k) {
       case 'hello':
-        if (payload.name) { Net.peerName = payload.name; renderPanel(); }
-        if (Net.mode === 'host' && Array.isArray(payload.deck) && payload.deck.length) {
-          Net.remoteDeck = payload.deck;
-          log('received peer deck (' + payload.deck.length + ' cards)');
+        if (payload.name) { Net.peerName = cleanPeerName(payload.name); renderPanel(); }
+        if (Net.mode === 'host') {
+          var hd = cleanDeck(payload.deck);
+          if (hd) { Net.remoteDeck = hd; log('received peer deck (' + hd.length + ' cards)'); }
+          if (Net.inMatch) { Net.resync(); break; }
         }
         Net.status((Net.peerName || 'Opponent') + ' is in the room.');
         break;
@@ -396,19 +517,29 @@
         break;
 
       case 'deck':
-        if (Net.mode === 'host' && Array.isArray(payload.cards)) {
-          Net.remoteDeck = payload.cards;
-          log('peer deck received (' + payload.cards.length + ' cards)');
+        if (Net.mode === 'host') {
+          var dd = cleanDeck(payload.cards);
+          if (!dd) break;
+          Net.remoteDeck = dd;
+          log('peer deck received (' + dd.length + ' cards)');
           if (Net._startWhenDeckArrives) { Net._startWhenDeckArrives = false; maybeStartMatch(); }
         }
         break;
 
       case 'start':
-        if (Net.mode === 'guest') { Net.inMatch = true; enterBattleScreen(); }
+        if (Net.mode === 'guest') {
+          if (!payload.resume) { Net._epoch = 0; Net._lastSeq = 0; }
+          Net.inMatch = true;
+          enterBattleScreen();
+        }
         break;
 
       case 'snap':
         if (Net.mode === 'guest') receiveSnapshot(payload);
+        break;
+
+      case 'resync':
+        if (Net.mode === 'host') Net.resync();
         break;
 
       case 'act':
@@ -416,7 +547,7 @@
         break;
 
       case 'chat':
-        addChat(Net.peerName || 'Opponent', payload.text, false);
+        if (typeof payload.text === 'string') addChat(Net.peerName || 'Opponent', payload.text.slice(0, CHAT_MAX), false);
         break;
 
       default:
@@ -424,8 +555,31 @@
     }
   }
 
+  /**
+   * Ordering rule: snapshots are (epoch, seq). A new epoch means a new match
+   * (or a host that restarted) and is always accepted. Within an epoch, only a
+   * strictly newer seq is applied; duplicates and late arrivals are dropped.
+   * Legacy snapshots without seq are accepted (back-compat).
+   */
+  Net._acceptSeq = function (payload) {
+    if (typeof payload.seq !== 'number') return true;
+    var ep = typeof payload.epoch === 'number' ? payload.epoch : 0;
+    if (ep !== Net._epoch) return true;
+    return payload.seq > Net._lastSeq;
+  };
+
   function receiveSnapshot(payload) {
-    if (!payload.g) return;
+    if (!Net._acceptSeq(payload)) {
+      Net.stats.snapsDropped++;
+      log('dropped stale snapshot seq=' + payload.seq + ' (have ' + Net._lastSeq + ')');
+      return;
+    }
+    var bad = validateSnapshot(payload.g);
+    if (bad) {
+      Net.stats.snapsInvalid++;
+      log('rejected invalid snapshot: ' + bad);
+      return;
+    }
     var uiObj = U();
     var g = (uiObj && uiObj.game) || null;
     if (!g) {
@@ -436,8 +590,20 @@
       if (uiObj) uiObj.game = g;
     }
     if (!Net.inMatch) { Net.inMatch = true; enterBattleScreen(); }
-    applySnapshot(g, payload.g, uiObj);
-    Net.status('Live — turn ' + (g.turnCount || 0));
+    try {
+      applySnapshot(g, payload.g, uiObj);
+    } catch (e) {
+      Net.stats.snapsInvalid++;
+      log('apply snapshot failed:', e && e.message);
+      Net.send({ t: 'relay', payload: { k: 'resync' } });
+      return;
+    }
+    if (typeof payload.seq === 'number') {
+      Net._epoch = typeof payload.epoch === 'number' ? payload.epoch : 0;
+      Net._lastSeq = payload.seq;
+    }
+    Net.stats.snapsApplied++;
+    Net.status('Connected — live, turn ' + (g.turnCount || 0));
     try {
       if (uiObj) {
         if (uiObj.updateBattleLog) uiObj.updateBattleLog();
@@ -480,60 +646,137 @@
   // -------------------------------------------------------------------------
   // Connection lifecycle
   // -------------------------------------------------------------------------
-  Net.connect = function (role, roomCode) {
-    if (Net.ws && (Net.ws.readyState === 0 || Net.ws.readyState === 1)) {
-      try { Net.ws.close(); } catch (e) {}
-    }
-    Net.mode = role;
-    Net.lane = role;
-    Net.myName = Net.myName || 'Commander';
-    Net.status('Connecting…');
+  function clearReconnect() {
+    if (Net._reconnectTimer) { clearTimeout(Net._reconnectTimer); Net._reconnectTimer = null; }
+  }
 
+  /** ms before reconnect attempt n (0-based): 500, 1000, 2000 … capped, ±20% jitter. */
+  Net._backoff = function (n) {
+    var ms = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * Math.pow(2, n));
+    return Math.round(ms * (0.8 + Math.random() * 0.4));
+  };
+
+  function scheduleReconnect() {
+    clearReconnect();
+    if (Net.mode === 'offline' || !Net.room) return;
+    if (Net._reconnectTries >= RECONNECT_MAX_TRIES) {
+      Net.reconnecting = false;
+      Net.status('Lost connection to the LAN server. Press LEAVE, then CREATE / JOIN again.');
+      renderPanel();
+      return;
+    }
+    var delay = Net._backoff(Net._reconnectTries);
+    Net._reconnectTries++;
+    Net.reconnecting = true;
+    Net.status('Connection lost — reconnecting (attempt ' + Net._reconnectTries + ') in ' + Math.round(delay / 100) / 10 + 's…');
+    renderPanel();
+    Net._reconnectTimer = setTimeout(function () {
+      Net._reconnectTimer = null;
+      if (Net.mode === 'offline') return;
+      Net.stats.reconnects++;
+      openSocket(Net.mode, Net.room, true);
+    }, delay);
+  }
+
+  function openSocket(role, roomCode, isReconnect) {
     var ws;
     try { ws = new WebSocket(wsUrl()); }
-    catch (e) { Net.status('Cannot open WebSocket: ' + e.message); return; }
+    catch (e) {
+      Net.status('Cannot open WebSocket: ' + e.message);
+      if (isReconnect) scheduleReconnect();
+      return;
+    }
     Net.ws = ws;
+    Net._intentionalClose = false;
 
     ws.onopen = function () {
-      Net.connected = true;
-      if (role === 'host') Net.send({ t: 'create', name: Net.myName });
-      else Net.send({ t: 'join', room: roomCode, name: Net.myName });
+      if (Net.ws !== ws) return;
+      if (role === 'host') {
+        if (isReconnect && Net.room && Net.token) Net.send({ t: 'create', reclaim: Net.room, token: Net.token, name: Net.myName });
+        else Net.send({ t: 'create', name: Net.myName });
+      } else {
+        Net.send({ t: 'join', room: roomCode, name: Net.myName, token: Net.token || undefined });
+      }
     };
 
     ws.onmessage = function (ev) {
+      if (Net.ws !== ws) return;
       var msg;
       try { msg = JSON.parse(ev.data); } catch (e) { return; }
+      if (!isObj(msg) || typeof msg.t !== 'string') return;
       switch (msg.t) {
         case 'created':
+          Net.connected = true;
+          Net.reconnecting = false;
+          Net._reconnectTries = 0;
           Net.room = msg.room;
-          Net.status('Room ' + msg.room + ' created — waiting for your opponent.');
+          if (msg.token) Net.token = msg.token;
+          saveSeat();
+          if (msg.resumed) {
+            Net.peerPresent = !!msg.peer;
+            if (msg.peerName) Net.peerName = cleanPeerName(msg.peerName);
+            Net.status(Net.peerPresent
+              ? 'Reconnected to room ' + msg.room + ' — resyncing ' + (Net.peerName || 'opponent') + '.'
+              : 'Reconnected to room ' + msg.room + ' — waiting for your opponent.');
+            if (Net.peerPresent) Net.resync();
+          } else {
+            Net.status('Room ' + msg.room + ' created — waiting for your opponent.');
+          }
           renderPanel();
           break;
         case 'joined':
+          Net.connected = true;
           Net.room = msg.room;
-          Net.peerPresent = true;
-          if (msg.hostName) Net.peerName = msg.hostName;
-          Net.status('Joined room ' + msg.room + ' — host: ' + (msg.hostName || '?'));
+          if (msg.token) Net.token = msg.token;
+          saveSeat();
+          Net.peerPresent = msg.hostPresent !== false;
+          if (msg.hostName) Net.peerName = cleanPeerName(msg.hostName);
+          Net.status((Net.reconnecting ? 'Reconnected to room ' : 'Joined room ') + msg.room + ' — host: ' + (Net.peerName || '?') +
+            (Net.peerPresent ? '' : ' (host offline, waiting…)'));
+          Net.reconnecting = false;
+          Net._reconnectTries = 0;
+          // hello doubles as the resync request: a host already in a match answers with a full snapshot.
           Net.send({ t: 'relay', payload: { k: 'hello', name: Net.myName, deck: currentDeck() } });
           renderPanel();
           break;
         case 'peerJoined':
           Net.peerPresent = true;
-          Net.peerName = msg.name || 'Opponent';
-          Net.status(Net.peerName + ' joined. Ready when you are.');
-          Net.send({ t: 'relay', payload: { k: 'hello', name: Net.myName, deck: currentDeck() } });
+          Net.peerName = cleanPeerName(msg.name);
+          if (Net.mode === 'host' && Net.inMatch) {
+            Net.status(Net.peerName + (msg.resumed ? ' reconnected' : ' joined') + ' — resyncing match.');
+            Net.resync();
+          } else if (Net.mode === 'guest' && msg.resumed) {
+            Net.status('Host ' + Net.peerName + ' reconnected.');
+            Net.send({ t: 'relay', payload: { k: 'resync' } });
+          } else {
+            Net.status(Net.peerName + ' joined. Ready when you are.');
+            Net.send({ t: 'relay', payload: { k: 'hello', name: Net.myName, deck: currentDeck() } });
+          }
           renderPanel();
           break;
         case 'peerLeft':
           Net.peerPresent = false;
-          Net.status('Opponent disconnected (' + (msg.reason || 'left') + ').');
+          if (msg.reserved) Net.status('Opponent connection dropped — holding their seat while they reconnect…');
+          else Net.status('Opponent left the room.');
           renderPanel();
           break;
         case 'relay':
           onRelay(msg.payload);
           break;
         case 'error':
-          Net.status('Error: ' + (msg.message || msg.code));
+          if (msg.code === 'RECLAIM_FAILED' || msg.code === 'NO_ROOM' || msg.code === 'ROOM_EXPIRED' ||
+              (Net.reconnecting && msg.code === 'ROOM_FULL')) {
+            // The room is gone (or our seat was given away): stop retrying.
+            Net.reconnecting = false;
+            Net._reconnectTries = RECONNECT_MAX_TRIES;
+            clearReconnect();
+            if (Net.room && msg.code !== 'NO_ROOM') Net.status('Could not resume room ' + Net.room + ' (' + msg.code + '). Press LEAVE and start again.');
+            else Net.status('Error: ' + (msg.message || msg.code));
+            Net._intentionalClose = true;
+            try { ws.close(); } catch (e) {}
+          } else {
+            Net.status('Error: ' + (msg.message || msg.code));
+          }
           break;
         default:
           break;
@@ -541,23 +784,83 @@
     };
 
     ws.onclose = function () {
+      if (Net.ws !== ws) return; // superseded socket
       Net.connected = false;
       Net.peerPresent = false;
-      if (Net.mode !== 'offline') Net.status('Disconnected from LAN server.');
       renderPanel();
+      if (Net.mode === 'offline' || Net._intentionalClose) {
+        if (Net.mode !== 'offline' && !Net.reconnecting) renderPanel();
+        return;
+      }
+      if (Net.room) scheduleReconnect();
+      else Net.status('Disconnected from LAN server.');
     };
 
-    ws.onerror = function () { Net.status('WebSocket error — is the LAN server running?'); };
+    ws.onerror = function () {
+      if (Net.ws !== ws) return;
+      if (!Net.reconnecting) Net.status('WebSocket error — is the LAN server running?');
+    };
+  }
+
+  Net.connect = function (role, roomCode) {
+    clearReconnect();
+    if (Net.ws && (Net.ws.readyState === 0 || Net.ws.readyState === 1)) {
+      var old = Net.ws;
+      Net.ws = null;
+      try { old.close(); } catch (e) {}
+    }
+    Net.mode = role;
+    Net.lane = role;
+    Net.room = role === 'guest' ? String(roomCode || '').toUpperCase().trim() : null;
+    Net.token = role === 'guest' ? loadSeatToken(Net.room, 'guest') : null;
+    Net.connected = false;
+    Net.peerPresent = false;
+    Net.reconnecting = false;
+    Net._reconnectTries = 0;
+    Net._epoch = 0;
+    Net._lastSeq = 0;
+    Net.myName = Net.myName || 'Commander';
+    Net.status('Connecting…');
+    openSocket(role, Net.room, false);
+  };
+
+  // Seat tokens survive a page reload (sessionStorage is per-tab), so a guest
+  // who refreshes mid-match can JOIN the same code and reclaim its seat.
+  function saveSeat() {
+    try {
+      if (Net.room && Net.token) sessionStorage.setItem('eunonymous_netSeat', JSON.stringify({ room: Net.room, token: Net.token, mode: Net.mode }));
+    } catch (e) { /* storage disabled */ }
+  }
+  function loadSeatToken(room, mode) {
+    try {
+      var s = JSON.parse(sessionStorage.getItem('eunonymous_netSeat') || 'null');
+      if (s && s.room === room && s.mode === mode && typeof s.token === 'string') return s.token;
+    } catch (e) { /* ignore */ }
+    return null;
+  }
+  function clearSeat() {
+    try { sessionStorage.removeItem('eunonymous_netSeat'); } catch (e) { /* ignore */ }
+  }
+
+  /** Test/diagnostic hook: simulate a network drop (socket dies, reconnect logic runs). */
+  Net._dropSocket = function () {
+    if (Net.ws) { try { Net.ws.close(4000, 'simulated drop'); } catch (e) {} }
   };
 
   Net.disconnect = function () {
+    clearReconnect();
+    Net._intentionalClose = true;
     if (Net.connected) Net.send({ t: 'leave' });
     try { if (Net.ws) Net.ws.close(); } catch (e) {}
     Net.mode = 'offline';
     Net.room = null;
+    Net.token = null;
+    clearSeat();
     Net.connected = false;
     Net.peerPresent = false;
+    Net.reconnecting = false;
     Net.inMatch = false;
+    Net.status('Left the room.');
     renderPanel();
   };
 
@@ -737,7 +1040,8 @@
 
   function renderPanel() {
     if (!Net._els || !Net._els.status) return;
-    var dotColor = Net.connected ? (Net.peerPresent ? '#05ffa1' : '#ffd700') : '#ff2a6d';
+    var dotColor = Net.reconnecting ? '#ff9f1c'
+      : (Net.connected ? (Net.peerPresent ? '#05ffa1' : '#ffd700') : '#ff2a6d');
     var head = Net._panel.querySelector('#net-head b');
     if (head) {
       head.innerHTML = '◈ NET PLAY <span class="net-dot" style="background:' + dotColor + '"></span>' +
@@ -747,8 +1051,11 @@
       Net._els.start.disabled = !(Net.mode === 'host' && Net.peerPresent);
       Net._els.start.style.display = Net.mode === 'guest' ? 'none' : 'block';
     }
-    Net._els.create.disabled = Net.connected;
-    Net._els.join.disabled = Net.connected;
+    var busy = Net.connected || Net.reconnecting;
+    Net._els.create.disabled = busy;
+    Net._els.join.disabled = busy;
+    if (Net._panel) Net._panel.setAttribute('data-net-state', Net.reconnecting ? 'reconnecting'
+      : (Net.connected ? (Net.peerPresent ? 'connected' : 'waiting') : (Net.mode === 'offline' ? 'offline' : 'disconnected')));
   }
 
   // -------------------------------------------------------------------------

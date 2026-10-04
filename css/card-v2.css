@@ -1,0 +1,344 @@
+/* ============================================================
+   CARD v2 — TCG 2.5 : 3.5 geometry with full-bleed artwork
+   ------------------------------------------------------------
+   Loaded LAST so it wins over the legacy cards/fixes-v9/v10/
+   final-v11/battle-v12 stacks. Selectors carry :not(#_cv2)
+   to add ID-level specificity, because some legacy rules are
+   scoped under #battle-arena with !important.
+
+   Every inner size is expressed in cqw (percent of the card's
+   own width; the card is a size container), so the layout is
+   identical at every scale — only the width changes per context.
+   ============================================================ */
+
+:root {
+  --cv2-full: 200px;   /* collection / deck builder / detail */
+  --cv2-market: 144px; /* bank market */
+  --cv2-hand: 96px;    /* hand */
+  --cv2-field: 92px;   /* battlefield */
+  --cv2-ink: #f4f6ff;
+  --cv2-panel: rgba(8, 10, 22, 0.86);
+}
+
+.card.cv2:not(#_cv2):not(#_cv2b) {
+  width: var(--cv2-w, var(--cv2-full)) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  aspect-ratio: 5 / 7 !important;            /* 2.5 x 3.5 */
+  container-type: inline-size;
+  position: relative !important;
+  display: block !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border-radius: 5.5cqw !important;
+  font-size: 5cqw !important;
+  line-height: 1.2 !important;
+  color: var(--cv2-ink);
+  background: #05060d !important;
+  border: 0 !important;
+  box-shadow:
+    0 0 0 1.4cqw color-mix(in srgb, var(--cv2-accent) 70%, #000) inset,
+    0 0 0 2.2cqw rgba(0,0,0,0.55) inset,
+    0 6px 18px rgba(0,0,0,0.55) !important;
+  flex: 0 0 auto !important;
+  max-width: none !important;
+  min-width: var(--cv2-w, var(--cv2-full)) !important;
+  box-sizing: border-box !important;
+}
+.card.cv2.cv2-small:not(#_cv2):not(#_cv2b)  { --cv2-w: var(--cv2-hand); }
+.card.cv2.cv2-field:not(#_cv2):not(#_cv2b)  { --cv2-w: var(--cv2-field); }
+.bank-card-slot .card.cv2:not(#_cv2):not(#_cv2b) { --cv2-w: var(--cv2-market); }
+.bank-hand-card .card.cv2:not(#_cv2):not(#_cv2b) { --cv2-w: 64px; }
+.card-collection .card.cv2:not(#_cv2):not(#_cv2b),
+#card-detail-content .card.cv2:not(#_cv2):not(#_cv2b) { --cv2-w: var(--cv2-full); }
+#card-detail-content .card.cv2:not(#_cv2):not(#_cv2b) { --cv2-w: min(340px, 80vw); }
+
+/* Legacy decoration layers are hidden inside v2 cards */
+.card.cv2 > .card-frame, .card.cv2 > .card-shimmer, .card.cv2 > .card-holo,
+.card.cv2 > .card-team-bg, .card.cv2 > .card-texture-overlay { display: none !important; }
+
+/* ---------- artwork window: top 58% ---------- */
+.cv2-artwin {
+  position: absolute; left: 2.2cqw; right: 2.2cqw; top: 2.2cqw;
+  height: 66cqw;                             /* ~47% of card height */
+  border-radius: 4cqw 4cqw 1.5cqw 1.5cqw;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--cv2-accent) 35%, transparent), transparent 70%),
+    #0b0e1c;
+}
+.cv2-art {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; display: block;
+  z-index: 1;
+  pointer-events: none;
+}
+.cv2-art-fallback {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 30cqw; opacity: .9;
+}
+.cv2-art-shade {
+  position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 26%),
+    linear-gradient(to top, rgba(4,5,12,.95) 0%, rgba(4,5,12,0) 32%);
+}
+
+/* ---------- cost gem (top-left) ---------- */
+.cv2-cost:not(#_cv2) {
+  position: absolute !important; z-index: 5; left: 3.5cqw !important; top: 3.5cqw !important;
+  width: 17cqw !important; height: 17cqw !important; min-width: 0 !important;
+  display: flex !important; align-items: center; justify-content: center;
+  border-radius: 50% !important;
+  font: 900 10.5cqw/1 var(--font-display, 'Orbitron', system-ui, sans-serif) !important;
+  color: #fff !important;
+  background: radial-gradient(circle at 35% 30%, #7fd4ff, #1565c0 60%, #0a2a66) !important;
+  border: .9cqw solid #cfe9ff !important;
+  box-shadow: 0 0 3cqw rgba(60,170,255,.75), 0 1cqw 2cqw rgba(0,0,0,.6) !important;
+  text-shadow: 0 .6cqw 1cqw rgba(0,0,0,.8);
+  transform: none !important; margin: 0 !important; padding: 0 !important;
+}
+
+/* ---------- character sigil (top-right) ---------- */
+.cv2-char {
+  position: absolute; z-index: 5; right: 4cqw; top: 4cqw;
+  width: 13cqw; height: 13cqw; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 7.5cqw; line-height: 1;
+  background: rgba(0,0,0,.65); border: .7cqw solid var(--cv2-accent);
+}
+
+/* ---------- name plate overlapping the art bottom ---------- */
+.cv2-nameplate {
+  position: absolute; z-index: 4; left: 2.2cqw; right: 2.2cqw; top: 54.2cqw;
+  padding: 0 4cqw;
+  height: 14cqw; display: flex; align-items: center;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--cv2-accent) 55%, #000) 0%, rgba(6,8,18,.92) 70%);
+  border-top: .6cqw solid color-mix(in srgb, var(--cv2-accent) 80%, #fff);
+  border-bottom: .6cqw solid rgba(0,0,0,.6);
+}
+.cv2-name:not(#_cv2) {
+  font: 800 7.6cqw/1.05 var(--font-display, 'Orbitron', system-ui, sans-serif) !important;
+  letter-spacing: .02em; text-transform: uppercase;
+  color: #fff !important;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-shadow: 0 .5cqw 1cqw rgba(0,0,0,.9);
+  max-width: 100%; margin: 0 !important; padding: 0 !important;
+}
+
+/* ---------- type line (between art and ability — user rule) ---------- */
+.cv2-typeline {
+  position: absolute; z-index: 4; left: 2.2cqw; right: 2.2cqw; top: 68.2cqw;
+  height: 10cqw; padding: 0 3.5cqw;
+  display: flex; align-items: center; gap: 2.5cqw;
+  background: rgba(255,255,255,.06);
+  border-bottom: .4cqw solid rgba(255,255,255,.08);
+}
+.cv2-type:not(#_cv2) {
+  font: 800 5.4cqw/1 var(--font-body, system-ui, sans-serif) !important;
+  text-transform: uppercase; letter-spacing: .06em;
+  padding: 1.2cqw 2.6cqw !important; border-radius: 1.6cqw !important;
+  color: #fff !important; background: rgba(255,255,255,.14) !important;
+  border: 0 !important; margin: 0 !important; position: static !important;
+}
+.card-creature  .cv2-type:not(#_cv2) { background: #b3262f !important; }
+.card-spell     .cv2-type:not(#_cv2) { background: #3150c8 !important; }
+.card-trap      .cv2-type:not(#_cv2) { background: #b8620e !important; }
+.card-structure .cv2-type:not(#_cv2) { background: #1d7a46 !important; }
+.card-gear      .cv2-type:not(#_cv2) { background: #6b6f80 !important; }
+.card-action    .cv2-type:not(#_cv2) { background: #8a2bb8 !important; }
+.card-conspiracy .cv2-type:not(#_cv2){ background: #3a3a3a !important; }
+.card-role      .cv2-type:not(#_cv2) { background: #a88a12 !important; }
+.cv2-team {
+  flex: 1 1 auto; min-width: 0;
+  font: 700 5cqw/1 var(--font-body, system-ui, sans-serif);
+  color: color-mix(in srgb, var(--cv2-team) 75%, #fff);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cv2-rarity { flex: 0 0 auto; width: 4.4cqw; height: 4.4cqw; transform: rotate(45deg); border: .5cqw solid rgba(255,255,255,.8); }
+.cv2-r-common    { background: #9aa3b2; }
+.cv2-r-uncommon  { background: #3ecf6e; }
+.cv2-r-rare      { background: #3b8bff; }
+.cv2-r-epic      { background: #b04bff; }
+.cv2-r-legendary { background: #ffb300; box-shadow: 0 0 2cqw #ffb300; }
+.cv2-r-mythic    { background: #ff3d6e; box-shadow: 0 0 2.5cqw #ff3d6e; }
+
+/* ---------- rules text box ---------- */
+.cv2-text:not(#_cv2) {
+  position: absolute !important; z-index: 3; left: 2.2cqw; right: 2.2cqw; top: 78.2cqw; bottom: 2.2cqw;
+  padding: 2.8cqw 4.2cqw 0 !important;
+  overflow: hidden !important;
+  background: var(--cv2-panel) !important;
+  border-radius: 0 0 4cqw 4cqw;
+  display: flex !important; flex-direction: column; gap: 1.6cqw;
+  margin: 0 !important; max-height: none !important; min-height: 0 !important; height: auto !important;
+  font-size: inherit !important; text-align: left !important;
+}
+.cv2-effect {
+  font: 600 5.6cqw/1.25 var(--font-body, system-ui, sans-serif);  /* bold-ish effect */
+  color: #eef2ff;
+  display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; flex: 0 1 auto; min-height: 0;
+}
+.cv2-effect .keyword-tag:not(#_cv2) {
+  font-weight: 900 !important; color: #ffd76a !important;
+  background: none !important; padding: 0 !important; border: 0 !important;
+  font-size: inherit !important;
+}
+.cv2-flavor {
+  font: italic 400 4.9cqw/1.25 Georgia, 'Times New Roman', serif;   /* italic description */
+  color: rgba(220,226,245,.66);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; flex: 0 0 auto;
+}
+
+/* ---------- stat badges: value above icon (user rule) ---------- */
+.cv2-stats {
+  position: absolute; z-index: 6; left: 3cqw; right: 3cqw; bottom: 3cqw;
+  display: flex; justify-content: space-between; align-items: flex-end;
+  pointer-events: none;
+}
+.cv2-stat:not(#_cv2) {
+  position: static !important; transform: none !important; margin: 0 !important;
+  min-width: 17cqw; height: 17cqw; padding: 0 1.5cqw !important;
+  display: flex !important; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 3cqw !important; border: .8cqw solid rgba(255,255,255,.75) !important;
+  box-shadow: 0 1cqw 2.5cqw rgba(0,0,0,.7) !important;
+  color: #fff !important;
+}
+.cv2-stat-val { font: 900 8.4cqw/1 var(--font-display, 'Orbitron', system-ui, sans-serif); text-shadow: 0 .5cqw 1cqw rgba(0,0,0,.8); }
+.cv2-stat-ico { font-size: 4.6cqw; line-height: 1; margin-top: .6cqw; opacity: .95; }
+.cv2-atk:not(#_cv2) { background: linear-gradient(#e2453c, #8f1d17) !important; }
+.cv2-def:not(#_cv2) { background: linear-gradient(#5b7fa6, #2a3f5a) !important; }
+.cv2-hp:not(#_cv2)  { background: linear-gradient(#2fbf62, #146b34) !important; }
+.cv2-stat.stat-buffed .cv2-stat-val   { color: #8dffb0; }
+.cv2-stat.stat-debuffed .cv2-stat-val { color: #ffb0a8; }
+
+.cv2-hpbar { position: absolute; z-index: 6; left: 22cqw; right: 22cqw; bottom: 4cqw; height: 2.4cqw; border-radius: 2cqw; background: rgba(0,0,0,.7); overflow: hidden; }
+.cv2-hpbar-fill { height: 100%; }
+.cv2-hpbar-fill.hp-high { background: #35d46a; } .cv2-hpbar-fill.hp-medium { background: #f5b82e; } .cv2-hpbar-fill.hp-low { background: #ff4d4d; }
+
+/* ---------- compact tiers: hand / market / battlefield ----------
+   Below ~110px the rules text cannot be legible (<9px), so it is hidden and
+   the art grows; full text is in the hover tooltip and the detail modal. */
+/* (:not(#_cv2) x2 beats the 1-id specificity of the base .cv2-text rule) */
+.card.cv2.cv2-small .cv2-text:not(#_cv2):not(#_cv2b), .card.cv2.cv2-field .cv2-text:not(#_cv2):not(#_cv2b),
+.bank-card-slot .card.cv2 .cv2-flavor { display: none !important; }
+/* the market slot is a cv2-small card but keeps its rules text */
+.bank-card-slot .card.cv2.cv2-small .cv2-text:not(#_cv2):not(#_cv2b) { display: flex !important; }
+.card.cv2.cv2-small .cv2-artwin, .card.cv2.cv2-field .cv2-artwin { height: auto; bottom: 2.2cqw; border-radius: 4cqw; }
+.card.cv2.cv2-small .cv2-nameplate, .card.cv2.cv2-field .cv2-nameplate { top: auto; bottom: 22cqw; height: 17cqw; }
+.card.cv2.cv2-small .cv2-name:not(#_cv2), .card.cv2.cv2-field .cv2-name:not(#_cv2) {
+  font-size: 10.5cqw !important; white-space: normal; line-height: 1 !important;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+}
+.card.cv2.cv2-small .cv2-typeline, .card.cv2.cv2-field .cv2-typeline { display: none; }
+.card.cv2.cv2-small .cv2-cost:not(#_cv2), .card.cv2.cv2-field .cv2-cost:not(#_cv2) {
+  width: 24cqw !important; height: 24cqw !important; font-size: 14cqw !important;
+}
+.card.cv2.cv2-small .cv2-char, .card.cv2.cv2-field .cv2-char { width: 18cqw; height: 18cqw; font-size: 10cqw; }
+.card.cv2.cv2-small .cv2-stat:not(#_cv2), .card.cv2.cv2-field .cv2-stat:not(#_cv2) { min-width: 26cqw; height: 22cqw; border-width: 1cqw !important; }
+.card.cv2.cv2-small .cv2-stat-val, .card.cv2.cv2-field .cv2-stat-val { font-size: 14cqw; }
+.card.cv2.cv2-small .cv2-stat-ico, .card.cv2.cv2-field .cv2-stat-ico { display: none; }
+.card.cv2.cv2-field .cv2-hpbar { bottom: 1.5cqw; left: 6cqw; right: 6cqw; height: 3cqw; }
+/* Market keeps its rules text: 128px wide gives ~7px... so show effect only, larger */
+.bank-card-slot .card.cv2 .cv2-effect { font-size: 7.2cqw; }
+.bank-card-slot .card.cv2 .cv2-name:not(#_cv2) { font-size: 8.6cqw !important; }
+.bank-card-slot .card.cv2 .cv2-type:not(#_cv2) { font-size: 6.4cqw !important; }
+.bank-card-slot .card.cv2 .cv2-team { font-size: 6cqw; }
+.bank-card-slot .card.cv2 .cv2-stat:not(#_cv2) { min-width: 21cqw; height: 19cqw; }
+.bank-card-slot .card.cv2 .cv2-stat-val { font-size: 10cqw; }
+
+/* hover: lift, never scale text into blur in the hand */
+.card.cv2:hover { z-index: 30; }
+
+/* frozen */
+.card.cv2.card-frozen::after {
+  content: ''; position: absolute; inset: 0; z-index: 7; pointer-events: none;
+  background: linear-gradient(135deg, rgba(150,220,255,.35), rgba(80,160,255,.15));
+  border-radius: inherit; box-shadow: 0 0 0 1.4cqw #8fdcff inset;
+}
+
+/* rarity edge glow */
+.card.cv2.legendary:not(#_cv2):not(#_cv2b) { box-shadow: 0 0 0 1.4cqw #ffb300 inset, 0 0 0 2.2cqw rgba(0,0,0,.55) inset, 0 0 14px rgba(255,179,0,.45), 0 6px 18px rgba(0,0,0,.55) !important; }
+.card.cv2.mythic:not(#_cv2):not(#_cv2b)    { box-shadow: 0 0 0 1.4cqw #ff3d6e inset, 0 0 0 2.2cqw rgba(0,0,0,.55) inset, 0 0 16px rgba(255,61,110,.5), 0 6px 18px rgba(0,0,0,.55) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .card.cv2 { transition: none !important; }
+}
+
+/* ---------- stat row reserves its own band so text never runs under it ---------- */
+.card.cv2 .cv2-text:not(#_cv2) { bottom: 2.2cqw; }
+.card.cv2:has(.cv2-stats) .cv2-text:not(#_cv2) { bottom: 20cqw; border-radius: 0; }
+.card.cv2:has(.cv2-stats)::before {   /* band behind the stat badges */
+  content: ''; position: absolute; z-index: 2; left: 2.2cqw; right: 2.2cqw; bottom: 2.2cqw; height: 17.8cqw;
+  background: var(--cv2-panel); border-radius: 0 0 4cqw 4cqw;
+}
+.card.cv2 .cv2-stats { bottom: 3.2cqw; left: 4cqw; right: 4cqw; }
+.card.cv2 .cv2-stat:not(#_cv2) { min-width: 16cqw; height: 15.6cqw; }
+.card.cv2 .cv2-stat-val { font-size: 7.6cqw; }
+.card.cv2 .cv2-stat-ico { font-size: 4.2cqw; }
+.card.cv2.cv2-small::before, .card.cv2.cv2-field::before { display: none; }
+
+/* ---------- fit ladder (classes set by js/card-fit.js after measuring) ---------- */
+.card.cv2.cv2-name-l  .cv2-name:not(#_cv2) { font-size: 6.6cqw !important; letter-spacing: 0; }
+.card.cv2.cv2-name-xl .cv2-name:not(#_cv2) { font-size: 5.8cqw !important; letter-spacing: 0; }
+.card.cv2.cv2-name-2l .cv2-name:not(#_cv2) { font-size: 5.8cqw !important; letter-spacing: 0; white-space: normal; line-height: 1 !important;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.card.cv2.fit-1 .cv2-flavor { -webkit-line-clamp: 1; }
+.card.cv2.fit-2 .cv2-flavor,
+.card.cv2.fit-3 .cv2-flavor,
+.card.cv2.fit-4 .cv2-flavor { display: none; }
+.card.cv2.fit-3 .cv2-effect { font-size: 5cqw; line-height: 1.18; }
+.card.cv2.fit-4 .cv2-effect { font-size: 4.6cqw; line-height: 1.14; }
+.bank-card-slot .card.cv2.fit-3 .cv2-effect { font-size: 6.6cqw; }
+.bank-card-slot .card.cv2.fit-4 .cv2-effect { font-size: 6.3cqw; }
+/* compact tiers: name may use two lines */
+.card.cv2.cv2-small.cv2-name-l .cv2-name:not(#_cv2), .card.cv2.cv2-field.cv2-name-l .cv2-name:not(#_cv2),
+.card.cv2.cv2-small.cv2-name-xl .cv2-name:not(#_cv2), .card.cv2.cv2-field.cv2-name-xl .cv2-name:not(#_cv2),
+.card.cv2.cv2-small.cv2-name-2l .cv2-name:not(#_cv2), .card.cv2.cv2-field.cv2-name-2l .cv2-name:not(#_cv2) { font-size: 10.5cqw !important; }
+
+/* market: restore full layout geometry on top of the cv2-small compact rules */
+.bank-card-slot .card.cv2.cv2-small .cv2-artwin { height: 66cqw; bottom: auto; border-radius: 4cqw 4cqw 1.5cqw 1.5cqw; }
+.bank-card-slot .card.cv2.cv2-small .cv2-nameplate { top: 54.2cqw; bottom: auto; height: 14cqw; }
+.bank-card-slot .card.cv2.cv2-small .cv2-typeline { display: flex; }
+.bank-card-slot .card.cv2.cv2-small .cv2-name:not(#_cv2) { font-size: 8.4cqw !important; white-space: nowrap; display: block; }
+.bank-card-slot .card.cv2.cv2-small.cv2-name-l .cv2-name:not(#_cv2) { font-size: 7.4cqw !important; }
+.bank-card-slot .card.cv2.cv2-small.cv2-name-xl .cv2-name:not(#_cv2) { font-size: 6.6cqw !important; }
+.bank-card-slot .card.cv2.cv2-small.cv2-name-2l .cv2-name:not(#_cv2) { font-size: 6.6cqw !important; white-space: normal; display: -webkit-box; }
+.bank-card-slot .card.cv2.cv2-small .cv2-cost:not(#_cv2) { width: 19cqw !important; height: 19cqw !important; font-size: 11.5cqw !important; }
+.bank-card-slot .card.cv2.cv2-small .cv2-stat-ico { display: block; }
+.bank-card-slot .card.cv2.cv2-small::before { display: block; }
+.card.cv2.cv2-small.cv2-name-2l:not(.x) .cv2-name:not(#_cv2), .card.cv2.cv2-field.cv2-name-2l:not(.x) .cv2-name:not(#_cv2) { font-size: 9.6cqw !important; -webkit-line-clamp: 2; }
+.bank-card-slot .card.cv2.cv2-small.cv2-name-2l:not(.x) .cv2-name:not(#_cv2) { font-size: 6.6cqw !important; }
+.card.cv2.cv2-small .cv2-name:not(#_cv2), .card.cv2.cv2-field .cv2-name:not(#_cv2) { overflow-wrap: anywhere; hyphens: auto; }
+.card.cv2.cv2-field.cv2-name-2l:not(.x) .cv2-name:not(#_cv2) { font-size: 10cqw !important; }
+.card.cv2.fit-5 .cv2-flavor { display: none; }
+.card.cv2.fit-5 .cv2-effect { font-size: 4.6cqw; line-height: 1.06; }
+.bank-card-slot .card.cv2.fit-5 .cv2-effect { font-size: 6.3cqw; line-height: 1.04; letter-spacing: -.01em; }
+/* compact tiers: nameplate grows upward for 2-3 line names */
+.card.cv2.cv2-small:not(.x) .cv2-nameplate, .card.cv2.cv2-field:not(.x) .cv2-nameplate { height: auto; min-height: 17cqw; padding-top: 1.5cqw; padding-bottom: 1.5cqw; }
+.card.cv2.cv2-small.cv2-name-2l:not(.x) .cv2-name:not(#_cv2), .card.cv2.cv2-field.cv2-name-2l:not(.x) .cv2-name:not(#_cv2) { -webkit-line-clamp: 3; }
+.bank-card-slot .card.cv2.cv2-small:not(.x) .cv2-nameplate { height: 14cqw; min-height: 0; padding: 0 4cqw; }
+.bank-card-slot .card.cv2.fit-5 .cv2-effect { font-size: 6.3cqw; }
+
+/* shaders.css scales every .in-hand card to .85 — that both blurs text and makes
+   it smaller than measured. v2 sizes are explicit, so render at 1:1. */
+.card.cv2.in-hand:not(#_cv2):not(:hover) { transform: none !important; }
+
+/* fit-6 / fit-7: very long rules text — trade art height for text room instead of
+   shrinking type below legibility (art window 66cqw -> 52/44cqw). */
+.card.cv2.fit-6:not(.x) .cv2-artwin,  .card.cv2.fit-7:not(.x) .cv2-artwin  { height: 52cqw; }
+.card.cv2.fit-6:not(.x) .cv2-nameplate { top: 40.2cqw; }
+.card.cv2.fit-6:not(.x) .cv2-typeline  { top: 54.2cqw; }
+.card.cv2.fit-6 .cv2-text:not(#_cv2)   { top: 64.2cqw !important; }
+.card.cv2.fit-7:not(.x) .cv2-artwin    { height: 44cqw; }
+.card.cv2.fit-7:not(.x) .cv2-nameplate { top: 32.2cqw; }
+.card.cv2.fit-7:not(.x) .cv2-typeline  { top: 46.2cqw; }
+.card.cv2.fit-7 .cv2-text:not(#_cv2)   { top: 56.2cqw !important; }
+.card.cv2.fit-6 .cv2-flavor, .card.cv2.fit-7 .cv2-flavor { display: none; }
+.card.cv2.fit-6 .cv2-effect, .card.cv2.fit-7 .cv2-effect { font-size: 5cqw; line-height: 1.16; }
+.bank-card-slot .card.cv2.fit-6 .cv2-effect, .bank-card-slot .card.cv2.fit-7 .cv2-effect { font-size: 6.4cqw; line-height: 1.12; }
+.bank-card-slot .card.cv2.cv2-small.fit-6:not(.x) .cv2-artwin, .bank-card-slot .card.cv2.cv2-small.fit-7:not(.x) .cv2-artwin { height: 52cqw; }
+.bank-card-slot .card.cv2.cv2-small.fit-7:not(.x) .cv2-artwin { height: 44cqw; }
+.bank-card-slot .card.cv2.cv2-small.fit-6:not(.x) .cv2-nameplate { top: 40.2cqw; }
+.bank-card-slot .card.cv2.cv2-small.fit-7:not(.x) .cv2-nameplate { top: 32.2cqw; }
